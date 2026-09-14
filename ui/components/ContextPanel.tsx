@@ -13,11 +13,11 @@ function classifyDiffLine(line: string): DiffLineType {
 
 function DiffViewer({ diff }: { diff: string }) {
   return (
-    <div data-testid="context-diff" className="min-w-0 max-w-full overflow-x-auto rounded border border-[#292b35] bg-[#0d0e13] px-3 py-2">
-      <pre className="m-0 min-w-max whitespace-pre font-mono text-[11px] leading-5">
+    <div data-testid="context-diff" className="min-w-0 max-w-full overflow-x-auto bg-[#08090c] px-1 py-0.5">
+      <pre style={{ fontFamily: '"JetBrains Mono", "Cascadia Code", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }} className="m-0 min-w-max whitespace-pre text-[11px] leading-[1.02]">
         {diff.split('\n').map((line, index, lines) => {
           const type = classifyDiffLine(line);
-          const color = type === 'hunk' ? 'text-violet-300' : type === 'added' ? 'text-emerald-300' : type === 'removed' ? 'text-red-300' : 'text-slate-400';
+          const color = type === 'hunk' ? 'text-accent' : type === 'added' ? 'text-[#00e676]' : type === 'removed' ? 'text-[#ff5570]' : 'text-slate-300';
           return <React.Fragment key={`${index}-${line}`}><span data-diff-line-type={type} className={`block ${color}`}>{line}</span>{index < lines.length - 1 ? '\n' : ''}</React.Fragment>;
         })}
       </pre>
@@ -70,14 +70,14 @@ export function ContextPanel({ focus, snapshot, detail, loading }: { focus: Focu
         <span data-testid={isFile ? 'context-file-path' : undefined} className="ml-auto truncate font-mono text-[11px] text-text-muted">{rightLabel}</span>
       </div>
       {isFile && (
-        <div className="flex items-center gap-2 border-b border-[#292b35] bg-[#15161d] px-3 py-1.5 font-mono text-[10px] text-text-muted">
+        <div className="flex items-center gap-2 border-b border-[#292b35] bg-[#0b0c10] px-3 py-1.5 font-mono text-[10px] text-slate-300">
           <span className="text-amber-300">Working tree</span>
           <ArrowLeftRight size={13} className="text-slate-500" aria-hidden="true" />
           <span className="rounded border border-[#3a3b46] px-1.5 py-0.5 text-slate-300">HEAD</span>
           <span className="ml-auto text-slate-500">Unified diff</span>
         </div>
       )}
-      <div className="min-h-0 flex-1 overflow-hidden bg-[#101116] p-4 font-mono text-[11px] leading-relaxed">
+      <div className="min-h-0 flex-1 overflow-hidden bg-[#08090c] p-4 font-mono text-[11px] leading-[1.02]">
         {loading ? <div className="text-text-muted" role="status">Loading detail…</div> : contextual !== undefined ? isFile && typeof contextual === 'string' ? <DiffViewer diff={contextual} /> : isBranch && Array.isArray(contextual) ? <BranchLog entries={contextual} /> : <pre data-testid="context-detail" className="m-0 whitespace-pre-wrap break-words text-text-muted">{typeof contextual === 'string' ? contextual : JSON.stringify(contextual, null, 2)}</pre> : <div className="text-text-muted" role="status">No context data is available for this selection.</div>}
       </div>
     </section>

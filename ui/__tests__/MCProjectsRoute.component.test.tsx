@@ -66,6 +66,10 @@ test('renders classified unified diff rows without losing whitespace', { concurr
     assert.equal(host.querySelector('[data-diff-line-type="removed"]')?.textContent, '-const oldValue = true;');
     assert.equal(host.querySelector('[data-diff-line-type="added"]')?.textContent, '+const newValue = true;');
     assert.equal(host.querySelector('[data-diff-line-type="context"]:last-child')?.textContent, '  indented();');
+    const diff = host.querySelector<HTMLElement>('[data-testid="context-diff"]'); assert.ok(diff);
+    const diffCode = diff.querySelector<HTMLElement>('pre'); assert.ok(diffCode);
+    assert.match(diff.className, /(?:^|\s)py-0\.5(?:\s|$)/);
+    assert.match(diffCode.className, /(?:^|\s)leading-\[1\.02\](?:\s|$)/);
   } finally { await act(async () => root.unmount()); }
 });
 
