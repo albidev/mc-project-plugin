@@ -145,8 +145,8 @@ Esempio concettuale:
     {
       "id": "mission-control",
       "name": "Mission Control",
-      "path": "/home/cyclone/Developer/third_party/hermes-mission-control",
-      "remote": "https://github.com/albidev/hermes-mission-control.git",
+      "path": "${MC_PROJECT_HOST_ROOT}",
+      "remote": "https://github.com/example/mission-control-host.git",
       "defaultBranch": "main",
       "enabled": true
     }
@@ -214,8 +214,8 @@ Risposta:
     {
       "id": "mission-control",
       "name": "Mission Control",
-      "repository": "albidev/hermes-mission-control",
-      "pathLabel": "~/Developer/third_party/hermes-mission-control",
+      "repository": "example/mission-control-host",
+      "pathLabel": "${MC_PROJECT_HOST_ROOT}",
       "available": true,
       "currentBranch": "main",
       "workingTree": {"state": "clean", "changed": 0, "untracked": 0},
@@ -240,8 +240,8 @@ Questo è l’endpoint principale della schermata. Restituisce un modello coeren
   "project": {
     "id": "mission-control",
     "name": "Mission Control",
-    "repository": "albidev/hermes-mission-control",
-    "remoteUrl": "https://github.com/albidev/hermes-mission-control.git",
+    "repository": "example/mission-control-host",
+    "remoteUrl": "https://github.com/example/mission-control-host.git",
     "available": true
   },
   "head": {

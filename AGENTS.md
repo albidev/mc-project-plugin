@@ -5,7 +5,7 @@
 - Project ID: `mc-project-plugin`
 - Kind: `proprietary`
 - Scope: `combined`
-- Primary repository: `/home/cyclone/Developer/projects/mc-project-plugin`
+- Primary repository: `${MC_PROJECT_ROOT}`
 - Source of truth: this repository, current Mission Control plugin contract, and approved plan
 
 ## Skill Entry Point

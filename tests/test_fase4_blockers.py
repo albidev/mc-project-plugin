@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import threading
 from datetime import datetime
@@ -310,11 +311,18 @@ def test_snapshot_contract_fixtures_validate_envelope_and_capability_shapes() ->
 def test_actual_host_dispatcher_serializes_plugin_success_without_leaking_secrets(monkeypatch) -> None:
     import sys
 
-    host_server = Path("/home/cyclone/Developer/third_party/hermes-mission-control/server")
+    host_root_value = os.environ.get("MC_PROJECT_HOST_ROOT")
+    if not host_root_value:
+        pytest.skip("set MC_PROJECT_HOST_ROOT to run tests against a real Mission Control checkout")
+    host_root = Path(host_root_value).expanduser()
+    if not host_root.is_dir():
+        pytest.fail(f"MC_PROJECT_HOST_ROOT is not a directory: {host_root}")
+    host_server = host_root / "server"
+    plugin_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(host_server))
     try:
         from plugins.loader import PluginLoader, dispatch_plugin_request
-        loader = PluginLoader(internal_dir=Path("/nonexistent"), external_dir=Path("/home/cyclone/Developer/projects"))
+        loader = PluginLoader(internal_dir=host_root / "nonexistent-internal", external_dir=plugin_root.parent)
         assert loader.load_plugin("mc-project-plugin")
         monkeypatch.setattr("plugins.loader._loader", loader)
         module = loader.get_module("mc-project-plugin")
