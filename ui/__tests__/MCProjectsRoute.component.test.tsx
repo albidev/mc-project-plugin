@@ -7,6 +7,7 @@ import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import MCProjectsRoute from '../MCProjectsRoute.tsx';
+import { ContextPanel } from '../components/ContextPanel.tsx';
 
 const fixture = JSON.parse(readFileSync(fileURLToPath(new URL('../../tests/fixtures/contracts/snapshot-real-backend.json', import.meta.url)), 'utf8'));
 const sleep = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -51,6 +52,48 @@ async function click(host: HTMLElement, selector: string) {
 }
 function text(host: HTMLElement) { return host.textContent ?? ''; }
 
+test('renders classified unified diff rows without losing whitespace', { concurrency: false }, async () => {
+  const window = installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const snapshot = structuredClone(fixture.data);
+  snapshot.fileDiffs['src/app.ts'] = 'diff --git a/src/app.ts b/src/app.ts\n@@ -1,3 +1,4 @@\n const value = 1;\n-const oldValue = true;\n+const newValue = true;\n  indented();';
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'file', value: 'src/app.ts' }, snapshot })); await sleep(); });
+  try {
+    assert.match(text(host), /Diff del file selezionato/);
+    assert.equal(host.querySelector('[data-testid="context-file-path"]')?.textContent, 'src/app.ts');
+    assert.deepEqual([...host.querySelectorAll<HTMLElement>('[data-diff-line-type]')].map((line) => line.dataset.diffLineType), ['context', 'hunk', 'context', 'removed', 'added', 'context']);
+    assert.equal(host.querySelector('[data-diff-line-type="removed"]')?.textContent, '-const oldValue = true;');
+    assert.equal(host.querySelector('[data-diff-line-type="added"]')?.textContent, '+const newValue = true;');
+    assert.equal(host.querySelector('[data-diff-line-type="context"]:last-child')?.textContent, '  indented();');
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('renders branch log refs, parents, and merge metadata without losing commit fields', { concurrency: false }, async () => {
+  installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const snapshot = structuredClone(fixture.data);
+  snapshot.branchLogs.main = [{
+    hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', shortHash: 'bbbbbbb', subject: 'Merge feature/ui', author: 'Maintainer', date: '2026-09-14T11:00:00+00:00',
+    merge: true, refs: ['HEAD -> main', 'origin/main'], parents: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'cccccccccccccccccccccccccccccccccccccc'],
+  }];
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'branch', value: 'main' }, snapshot })); await sleep(); });
+  try {
+    assert.match(text(host), /Branch log · main/);
+    assert.match(text(host), /bbbbbbb/);
+    assert.match(text(host), /bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/);
+    assert.match(text(host), /Merge feature\/ui/);
+    assert.match(text(host), /Maintainer/);
+    assert.match(text(host), /2026-09-14T11:00:00\+00:00/);
+    assert.match(text(host), /HEAD -> main/);
+    assert.match(text(host), /origin\/main/);
+    assert.match(text(host), /aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/);
+    assert.match(text(host), /cccccccccccccccccccccccccccccccccccccc/);
+    assert.match(text(host), /merge: true/);
+  } finally { await act(async () => root.unmount()); }
+});
+
 test('mounts the route and exercises real rendered files, branches, context, PR detail, guard, and overflow DOM', { concurrency: false }, async () => {
   const { host, root } = await mountedRoute();
   try {
@@ -84,14 +127,19 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
     assert.equal(host.querySelectorAll('[role="tree"] [role="treeitem"]').length, 2);
     const file = host.querySelector<HTMLElement>('[data-tree-path="src/app.ts"]'); assert.ok(file);
     await act(async () => { file.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await sleep(); });
-    assert.match(text(host), /File diff/);
+    assert.match(text(host), /Diff del file selezionato/);
+    assert.match(text(host), /Working tree/);
+    assert.match(text(host), /HEAD/);
+    assert.match(text(host), /Unified diff/);
+    assert.equal(host.querySelector('[data-testid="context-file-path"]')?.textContent, 'src/app.ts');
+    assert.ok(host.querySelector('[data-diff-line-type="added"]'));
 
     await click(host, 'button[aria-expanded="false"]');
     assert.ok(host.querySelector('[role="option"]'));
     assert.doesNotMatch(text(host), /Selected projectOther/);
     await click(host, 'button[aria-pressed="false"]');
     assert.match(text(host), /origin\/main/);
-    assert.match(text(host), /File diff/);
+    assert.match(text(host), /Diff del file selezionato/);
     await click(host, 'button[aria-pressed="false"]');
     await click(host, 'button[data-branch-name="main"]');
     assert.match(text(host), /Branch log · main/);
