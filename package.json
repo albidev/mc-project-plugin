@@ -1,0 +1,21 @@
+{
+  "name": "mc-project-plugin",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:ui": "node --experimental-strip-types --experimental-loader ./ui/test-loader.mjs --test ui/__tests__/*.test.ts ui/__tests__/*.test.tsx",
+    "test": "npm run test:ui"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "happy-dom": "20.14.5",
+    "typescript": "^5.6.2"
+  }
+}

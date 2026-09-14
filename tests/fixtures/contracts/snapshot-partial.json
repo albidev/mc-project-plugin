@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "data": {
+    "schemaVersion": 1,
+    "project_id": "demo",
+    "processInstanceId": "process-instance",
+    "registryEpoch": 1,
+    "contextIdentity": "sha256",
+    "localGeneration": 2,
+    "localStatus": "stale",
+    "project": {"name": "Demo", "repository": "https://github.com/example/repo.git"},
+    "snapshotId": "stale-snapshot-id",
+    "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "observedAt": "2026-09-14T10:00:00+00:00",
+    "lastUpdated": "2026-09-14T09:59:00+00:00",
+    "workingTree": {"files": []},
+    "fileDiffs": {},
+    "branchLogs": {},
+    "branches": {"local": [], "remote": [], "remoteAlias": "origin", "repository": "https://github.com/example/repo.git"},
+    "commits": [],
+    "focusDefaults": {"kind": "file", "value": null},
+    "refreshing": false,
+    "capabilities": {
+      "workingTree": {"status": "stale", "stale": true, "source": "local_git", "observedAt": "2026-09-14T10:00:00+00:00", "generation": 2, "errorCode": "GIT_TIMEOUT", "value": {"files": []}},
+      "github": {"status": "stale", "stale": true, "source": "github", "observedAt": "2026-09-14T10:00:00+00:00", "generation": 2, "errorCode": "GITHUB_TIMEOUT", "value": {"status": "stale", "pullRequests": [], "issues": []}}
+    },
+    "github": {"status": "stale", "pullRequests": [], "issues": []},
+    "warnings": ["GITHUB_TIMEOUT"]
+  },
+  "meta": {"schemaVersion": 1, "requestId": "opaque-request-id", "observedAt": "2026-09-14T10:00:00+00:00"}
+}

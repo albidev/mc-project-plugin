@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "data": {
+    "schemaVersion": 1,
+    "project_id": "demo",
+    "project": {"name": "Demo", "repository": "https://github.com/example/repo.git"},
+    "processInstanceId": "process-instance",
+    "registryEpoch": 1,
+    "contextIdentity": "sha256",
+    "localGeneration": 1,
+    "snapshotId": "snapshot-id",
+    "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "observedAt": "2026-09-14T10:00:00+00:00",
+    "refreshing": false,
+    "lastUpdated": "2026-09-14T10:00:00+00:00",
+    "fingerprints": {"HEAD": "sha256", "status": "sha256", "refs/remotes": "sha256", "workingTree": "sha256", "branches": "sha256", "commits": "sha256", "local": "sha256"},
+    "localStatus": "ready",
+    "capabilities": {
+      "workingTree": {"status": "ready", "stale": false, "source": "local_git", "observedAt": "2026-09-14T10:00:00+00:00", "generation": 1, "value": {"files": []}},
+      "github": {"status": "empty", "stale": false, "source": "github", "observedAt": "2026-09-14T10:00:00+00:00", "generation": 1, "value": {"status": "empty", "pullRequests": [], "issues": []}}
+    },
+    "workingTree": {"files": []},
+    "fileDiffs": {},
+    "branchLogs": {},
+    "branches": {"local": [], "remote": [], "remoteAlias": "origin", "repository": "https://github.com/example/repo.git"},
+    "commits": [],
+    "focusDefaults": {"kind": "file", "value": null},
+    "github": {"status": "ready", "pullRequests": [], "issues": []},
+    "warnings": []
+  },
+  "meta": {"schemaVersion": 1, "requestId": "opaque-request-id", "observedAt": "2026-09-14T10:00:00+00:00"}
+}
