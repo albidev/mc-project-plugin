@@ -117,7 +117,7 @@ test('refresh errors retain last-known-good and layout has one route scroll owne
   const good = snapshot();
   assert.equal(retainLastGood(good, undefined, true), good);
   assert.equal(retainLastGood(good, { ...good, snapshotId: 'snap-2' }, false).snapshotId, 'snap-2');
-  assert.deepEqual(routeLayoutContract(), { scrollOwner: 'route', horizontalOverflow: 'hidden', mobileOrder: ['selector', 'files', 'branches', 'commits', 'mutation', 'context', 'github'] });
+  assert.deepEqual(routeLayoutContract(), { scrollOwner: 'route', horizontalOverflow: 'hidden', mobileOrder: ['selector', 'files', 'branches', 'commits', 'github', 'mutation', 'context'] });
 });
 
 function deferred() { let resolve; let reject; const promise = new Promise((ok, fail) => { resolve = ok; reject = fail; }); return { promise, resolve, reject }; }

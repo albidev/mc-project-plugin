@@ -8,6 +8,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import MCProjectsRoute from '../MCProjectsRoute.tsx';
 import { ContextPanel } from '../components/ContextPanel.tsx';
+import { GitHubFooter } from '../components/GitHubFooter.tsx';
 
 const fixture = JSON.parse(readFileSync(fileURLToPath(new URL('../../tests/fixtures/contracts/snapshot-real-backend.json', import.meta.url)), 'utf8'));
 const sleep = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -52,6 +53,18 @@ async function click(host: HTMLElement, selector: string) {
 }
 function text(host: HTMLElement) { return host.textContent ?? ''; }
 
+test('renders only populated GitHub blocks', { concurrency: false }, async () => {
+  installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(GitHubFooter, { issues: [], pullRequests: [{ number: 1, title: 'PR', url: undefined, repository: 'example/repo' }], status: 'ready', onPullRequest: () => {} })); await sleep(); });
+  try {
+    assert.ok(host.querySelector('[data-testid="github-section"]'));
+    assert.equal(host.querySelector('[data-testid="github-issues"]'), null);
+    assert.ok(host.querySelector('[data-testid="github-pull-requests"]'));
+  } finally { await act(async () => root.unmount()); }
+});
+
 test('renders classified unified diff rows without losing whitespace', { concurrency: false }, async () => {
   const window = installDom();
   const host = document.createElement('div'); document.body.append(host);
@@ -60,8 +73,10 @@ test('renders classified unified diff rows without losing whitespace', { concurr
   const root = createRoot(host);
   await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'file', value: 'src/app.ts' }, snapshot })); await sleep(); });
   try {
-    assert.match(text(host), /Diff del file selezionato/);
-    assert.equal(host.querySelector('[data-testid="context-file-path"]')?.textContent, 'src/app.ts');
+    assert.match(text(host), /DIFF/);
+    assert.equal(host.querySelector('[data-testid="git-log-breadcrumb"]')?.textContent?.includes('src/app.ts'), true);
+    assert.match(host.querySelector<HTMLElement>('[data-testid="git-log-breadcrumb"]')?.className ?? '', /(?:^|\s)h-8(?:\s|$)/);
+    assert.match(host.querySelector<HTMLElement>('[data-testid="context-diff"]')?.className ?? '', /(?:^|\s)flex-1(?:\s|$)/);
     assert.deepEqual([...host.querySelectorAll<HTMLElement>('[data-diff-line-type]')].map((line) => line.dataset.diffLineType), ['context', 'hunk', 'context', 'removed', 'added', 'context']);
     assert.equal(host.querySelector('[data-diff-line-type="removed"]')?.textContent, '-const oldValue = true;');
     assert.equal(host.querySelector('[data-diff-line-type="added"]')?.textContent, '+const newValue = true;');
@@ -84,7 +99,7 @@ test('renders branch log refs, parents, and merge metadata without losing commit
   const root = createRoot(host);
   await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'branch', value: 'main' }, snapshot })); await sleep(); });
   try {
-    assert.match(text(host), /Branch log · main/);
+    assert.match(text(host), /HISTORY/);
     assert.match(text(host), /bbbbbbb/);
     assert.match(text(host), /bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/);
     assert.match(text(host), /Merge feature\/ui/);
@@ -121,10 +136,13 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
     assert.ok(host.querySelector('[role="treeitem"][aria-selected="true"]'));
     assert.equal(host.querySelectorAll('[role="tree"] [role="treeitem"]').length, 2);
     const route = host.querySelector<HTMLElement>('[data-testid="mc-projects-route"]'); assert.ok(route);
-    assert.equal(getComputedStyle(route).overflowY, 'auto');
-    assert.equal(getComputedStyle(route).overflowX, 'hidden');
+    assert.match(route.className, /overflow-y-auto/);
+    assert.match(route.className, /overflow-x-hidden/);
     assert.equal(host.querySelectorAll<HTMLElement>('[data-testid="mc-projects-route"] *').length > 0, true);
-    for (const element of host.querySelectorAll<HTMLElement>('[data-testid="mc-projects-route"] *')) assert.notEqual(getComputedStyle(element).overflowY, 'auto');
+    const leftColumn = host.querySelector<HTMLElement>('[data-testid="mc-projects-route"] aside'); assert.ok(leftColumn);
+    assert.match(leftColumn.className, /md:overflow-y-auto/);
+    assert.match(route.className, /md:overflow-hidden/);
+    assert.match(host.querySelector<HTMLElement>('[data-testid="context-diff"]')?.className ?? '', /overflow-y-scroll/);
     assert.equal(host.querySelector<HTMLElement>('[data-testid="branch-switch"]')?.getAttribute('disabled'), '');
     const treeItems = [...host.querySelectorAll<HTMLElement>('[role="treeitem"]')];
     assert.equal(treeItems.length, 2);
@@ -146,11 +164,8 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
     assert.equal(host.querySelectorAll('[role="tree"] [role="treeitem"]').length, 2);
     const file = host.querySelector<HTMLElement>('[data-tree-path="src/app.ts"]'); assert.ok(file);
     await act(async () => { file.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await sleep(); });
-    assert.match(text(host), /Diff del file selezionato/);
-    assert.match(text(host), /Working tree/);
-    assert.match(text(host), /HEAD/);
-    assert.match(text(host), /Unified diff/);
-    assert.equal(host.querySelector('[data-testid="context-file-path"]')?.textContent, 'src/app.ts');
+    assert.match(text(host), /DIFF/);
+    assert.match(text(host), /src\/app\.ts/);
     assert.ok(host.querySelector('[data-diff-line-type="added"]'));
 
     await click(host, 'button[aria-expanded="false"]');
@@ -158,14 +173,14 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
     assert.doesNotMatch(text(host), /Selected projectOther/);
     await click(host, 'button[aria-pressed="false"]');
     assert.match(text(host), /origin\/main/);
-    assert.match(text(host), /Diff del file selezionato/);
+    assert.match(text(host), /DIFF/);
     await click(host, 'button[aria-pressed="false"]');
     await click(host, 'button[data-branch-name="main"]');
-    assert.match(text(host), /Branch log · main/);
+    assert.match(text(host), /HISTORY/);
     assert.match(text(host), /Initial/);
 
     await click(host, '[data-commit-hash]');
-    assert.match(text(host), /Commit details/);
+    assert.match(text(host), /COMMIT/);
     assert.match(text(host), /commit detail from backend/);
     assert.equal(host.querySelector('[data-testid="context-detail"]'), null);
     assert.equal(host.querySelector('pre[data-testid="context-detail"]'), null);
@@ -177,7 +192,7 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
     assert.ok(host.querySelector('a[href="https://github.com/example/repo/pull/1"][target="_blank"]'));
     assert.ok(host.querySelector('a[href="https://github.com/example/repo/issues/2"][target="_blank"]'));
     assert.equal(host.querySelectorAll('main').length, 1);
-    assert.equal(host.querySelectorAll('main > div [class*="overflow-y-auto"]').length, 0);
+    assert.equal(host.querySelectorAll('main > div [class*="overflow-y-auto"]').length, 1);
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -198,7 +213,7 @@ test('renders mobile order and verifies enabled mutation POST plus snapshot read
   globalThis.fetch = window.fetch;
   try {
     const route = host.querySelector('[data-testid="mc-projects-route"]'); assert.ok(route);
-    const sections = ['files-section', 'branches-section', 'mutation-section', 'context-section', 'github-section'];
+    const sections = ['files-section', 'branches-section', 'github-section', 'mutation-section', 'context-section'];
     assert.deepEqual(sections.map((id) => Boolean(host.querySelector(`[data-testid="${id}"]`))), [true, true, true, true, true]);
     const positions = sections.map((id) => [...host.querySelectorAll('[data-testid]')].findIndex((node) => node.getAttribute('data-testid') === id));
     assert.deepEqual([...positions].sort((a, b) => a - b), positions);
@@ -234,7 +249,12 @@ test('renders the selected branch as a terminal graph and routes commit selectio
     assert.ok(host.querySelector('[data-testid="context-commit-detail"]'));
     assert.match(text(host), /commit detail from backend/);
     assert.equal(host.querySelector('[data-testid="context-branch-log"]'), null);
-    assert.ok(host.querySelector('button[aria-label="Back to branch log"]'));
+    assert.equal(host.querySelector('[data-testid="git-log-breadcrumb-message"]')?.textContent, 'main work');
+    assert.equal(host.querySelector('button[aria-label="Back to branch log"]'), null);
+    assert.match(host.querySelector<HTMLElement>('[data-testid="context-commit-inspector"]')?.className ?? '', /(?:^|\s)flex(?:\s|$)/);
+    assert.match(host.querySelector<HTMLElement>('[data-testid="context-commit-scroll"]')?.className ?? '', /overflow-y-auto/);
+    await click(host, '[data-testid="git-log-breadcrumb-branch"]');
+    assert.ok(host.querySelector('[data-testid="context-branch-log"]'));
   } finally { await act(async () => root.unmount()); }
 });
 

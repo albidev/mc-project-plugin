@@ -10,6 +10,15 @@ interface GitLogTerminalProps {
   onSelectCommit: (hash?: string) => void;
 }
 
+export function GitLogBreadcrumb({ label = 'HISTORY', branch, commitMessage, commitCount, onBranchClick }: { label?: string; branch: string; commitMessage?: string; commitCount?: number; onBranchClick?: () => void }) {
+  return <div data-testid="git-log-breadcrumb" className="flex h-8 min-h-8 max-h-8 shrink-0 min-w-0 items-center gap-2 border-b border-[#292b35] bg-[#0b0c10] px-3 py-2 font-mono text-[10px] leading-[15px]">
+    <span className="shrink-0 font-semibold tracking-[0.12em] text-accent">{label}</span><span className="text-slate-600">/</span>
+    {onBranchClick ? <button data-testid="git-log-breadcrumb-branch" type="button" onClick={onBranchClick} className="min-w-0 truncate text-left text-slate-300 hover:text-white" title={branch}>{branch}</button> : <span className="min-w-0 truncate text-slate-300" title={branch}>{branch}</span>}
+    {commitMessage && <><span className="text-slate-600">/</span><span data-testid="git-log-breadcrumb-message" className="min-w-0 truncate text-slate-400" title={commitMessage}>{commitMessage}</span></>}
+    {commitCount !== undefined && <span className="ml-auto shrink-0 text-slate-500">{commitCount} commits</span>}
+  </div>;
+}
+
 type LibraryMeta = {
   shortHash: string;
   refs: string[];
@@ -115,14 +124,9 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
   };
 
   return (
-    <section data-testid="git-log-terminal" aria-label={`Git log ${branch}`} className="flex min-h-[520px] min-w-0 flex-col overflow-hidden bg-[#08090c] text-[11px] text-slate-300">
-      <div className="flex min-w-0 items-center gap-2 border-b border-[#292b35] bg-[#0b0c10] px-3 py-2 font-mono text-[10px]">
-        <span className="font-semibold tracking-[0.12em] text-accent">HISTORY</span>
-        <span className="text-slate-600">/</span>
-        <span className="min-w-0 truncate text-slate-300" title={branch}>{branch}</span>
-        <span className="ml-auto shrink-0 text-slate-500">{entries.length} commits</span>
-      </div>
-      <div className="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-visible bg-[#08090c]">
+    <section data-testid="git-log-terminal" aria-label={`Git log ${branch}`} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#08090c] text-[11px] text-slate-300 md:h-full">
+      <GitLogBreadcrumb branch={branch} commitCount={entries.length} />
+      <div data-testid="git-log-scroll" className="min-h-0 min-w-0 flex-1 overflow-auto bg-[#08090c]">
         {entries.length === 0 ? (
           <div role="status" className="px-3 py-4 text-text-muted">No commits available for this branch.</div>
         ) : (

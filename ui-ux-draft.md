@@ -47,8 +47,8 @@ Il progetto selezionato e lo stato del branch hanno priorità visiva. Commit, wo
 2. selettore progetto;
 3. riepilogo branch/remote;
 4. working tree, branch e commit nella colonna sinistra;
-5. pannello centrale contestuale nella colonna destra: diff file, log branch o dettaglio commit;
-6. issue aperte e PR aperte affiancate nella fascia inferiore.
+5. issue aperte e PR aperte nella colonna sinistra, solo quando esistono elementi da mostrare;
+6. pannello centrale contestuale nella colonna destra: diff file, log branch o dettaglio commit.
 
 Il working tree non deve essere nascosto sotto le informazioni remote: è più importante per l’operatività immediata. Il pannello centrale deve reagire alla selezione senza cambiare layout.
 

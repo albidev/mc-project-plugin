@@ -34,7 +34,7 @@ export function retainLastGood(previous: Snapshot, next: Snapshot | undefined, f
 }
 
 export function routeLayoutContract(): { scrollOwner: 'route'; horizontalOverflow: 'hidden'; mobileOrder: readonly string[] } {
-  return { scrollOwner: 'route', horizontalOverflow: 'hidden', mobileOrder: ['selector', 'files', 'branches', 'commits', 'mutation', 'context', 'github'] };
+  return { scrollOwner: 'route', horizontalOverflow: 'hidden', mobileOrder: ['selector', 'files', 'branches', 'commits', 'github', 'mutation', 'context'] };
 }
 
 type RouteApi = {

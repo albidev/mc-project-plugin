@@ -1,3 +1,23 @@
+[data-testid='context-diff'] {
+  scrollbar-width: thin;
+  scrollbar-color: #5b5f70 #0b0c10;
+}
+
+[data-testid='context-diff']::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+[data-testid='context-diff']::-webkit-scrollbar-track {
+  background: #0b0c10;
+}
+
+[data-testid='context-diff']::-webkit-scrollbar-thumb {
+  background: #5b5f70;
+  border-radius: 999px;
+  border: 2px solid #0b0c10;
+}
+
 [data-testid='git-log-terminal'] [data-testid^='graph-column-row-'] {
   min-height: 0 !important;
   height: 100% !important;
