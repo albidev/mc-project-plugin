@@ -5,7 +5,7 @@ export interface PluginManifest {
 }
 
 export type CapabilityStatus = 'ready' | 'empty' | 'stale' | 'unavailable' | 'error';
-export interface Capability<T> { status: CapabilityStatus; stale: boolean; source: 'local_git' | 'github'; observedAt?: string; generation: number; errorCode?: string | null; value: T; }
+export interface Capability<T> { status: CapabilityStatus; stale: boolean; source: 'local_git' | 'github'; observedAt: string; generation: number; errorCode?: string | null; staleSince?: string | null; value: T; }
 export interface ProjectSummary { project_id: string; name: string; enabled: boolean; remote: string; default_branch: string; }
 export interface FileEntry { path: string; status?: string; oldPath?: string; }
 export interface WorkingTree { files: FileEntry[]; }

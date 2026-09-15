@@ -24,8 +24,8 @@ test('fails closed for dirty, stale, unavailable, or refreshing snapshots', () =
 });
 
 test('uses snapshot focus defaults and falls back to the first available item', () => {
-  assert.deepEqual(focusFromSnapshot({ focusDefaults: { kind: 'file', value: 'a.ts' }, workingTree: { files: [{ path: 'b.ts' }] }, branches: { local: [], remote: [] }, commits: [] }), { kind: 'file', value: 'a.ts' });
-  assert.deepEqual(focusFromSnapshot({ focusDefaults: { kind: 'file', value: null }, workingTree: { files: [] }, branches: { local: [{ name: 'main' }], remote: [] }, commits: [] }), { kind: 'branch', value: 'main' });
+  assert.deepEqual(focusFromSnapshot({ focusDefaults: { kind: 'file', value: 'a.ts' }, workingTree: { files: [{ path: 'b.ts' }] }, fileDiffs: {}, branchLogs: {}, branches: { local: [], remote: [] }, commits: [] }), { kind: 'file', value: 'b.ts' });
+  assert.deepEqual(focusFromSnapshot({ focusDefaults: { kind: 'file', value: null }, workingTree: { files: [] }, fileDiffs: {}, branchLogs: {}, branches: { local: [{ name: 'main' }], remote: [] }, commits: [] }), { kind: 'branch', value: 'main' });
 });
 
 test('safe external links accept only matching GitHub pull and issue URLs', () => {

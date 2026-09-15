@@ -145,19 +145,19 @@ class BranchMutationService:
         branches = git.branches()
         current = next((item for item in branches["local"] if item.get("current")), None)
         if not isinstance(current, dict) or not current.get("name"):
-            raise ServiceError("INDETERMINATE", 504)
+            raise ServiceError("INDETERMINATE", 409)
         try:
             fingerprints = getattr(git, "local_fingerprints", lambda: {})()
         except GitAdapterError as exc:
-            raise ServiceError("INDETERMINATE", 504) from exc
+            raise ServiceError("INDETERMINATE", 409) from exc
         if (not isinstance(fingerprints, dict)
                 or set(fingerprints) != {"HEAD", "status", "refs/remotes", "refs/heads", "currentBranch"}
                 or any(not isinstance(value, str) for value in fingerprints.values())
                 or not is_valid_ref_name(fingerprints.get("currentBranch"))):
-            raise ServiceError("INDETERMINATE", 504)
+            raise ServiceError("INDETERMINATE", 409)
         head = fingerprints.get("HEAD")
         if not isinstance(head, str) or not _OBJECT_ID.fullmatch(head):
-            raise ServiceError("INDETERMINATE", 504)
+            raise ServiceError("INDETERMINATE", 409)
         return {"branch": current["name"], "tracking": current.get("tracking"),
                 "status": "dirty" if working.get("files") else "clean", "branches": branches,
                 "head": head, "fingerprints": fingerprints}
@@ -194,14 +194,14 @@ class BranchMutationService:
     def _tracking_for(branches: object, name: str) -> str | None:
         local = branches.get("local") if isinstance(branches, dict) else None
         if not isinstance(local, list):
-            raise ServiceError("INDETERMINATE", 504)
+            raise ServiceError("INDETERMINATE", 409)
         item = next((item for item in local
                      if isinstance(item, dict) and item.get("name") == name), None)
         if not isinstance(item, dict):
             return None
         tracking = item.get("tracking")
         if not isinstance(tracking, (str, type(None))):
-            raise ServiceError("INDETERMINATE", 504)
+            raise ServiceError("INDETERMINATE", 409)
         return tracking
 
     def _run(self, context: RepositoryContext, name: str, create: bool) -> dict[str, object]:
@@ -245,6 +245,7 @@ class BranchMutationService:
             if dispatch_read != before:
                 raise ServiceError("READBACK_MISMATCH", 409)
             self.service.begin_mutation(context)
+            registry_identity = self.service._registry_identity(self.service.registry)
             completed = False
             try:
                 generation = self.service._next_generation(context.project_id)
@@ -264,18 +265,19 @@ class BranchMutationService:
                         or not isinstance(after.get("tracking"), (str, type(None)))
                         or not self._fingerprints_match(before["fingerprints"], after["fingerprints"], name, create)):
                     raise ServiceError("READBACK_MISMATCH", 409)
+                if not self.service.finish_mutation_verified(context.project_id, registry_identity):
+                    raise ServiceError("INDETERMINATE", 409)
                 completed = True
-                self.service.finish_mutation(context.project_id, indeterminate=False)
                 return {"project_id": context.project_id, "branch": name, "tracking": after["tracking"],
                         "status": after["status"], "created": create, "generation": generation, "verified": True}
             except ServiceError as exc:
                 self._recover_indeterminate(context)
                 if exc.code == "READBACK_MISMATCH":
                     raise
-                raise ServiceError("INDETERMINATE", 504) from exc
+                raise ServiceError("INDETERMINATE", 409) from exc
             except BaseException as exc:
                 self._recover_indeterminate(context)
-                raise ServiceError("INDETERMINATE", 504) from exc
+                raise ServiceError("INDETERMINATE", 409) from exc
             finally:
                 if not completed:
                     self.service.finish_mutation(context.project_id, indeterminate=True)

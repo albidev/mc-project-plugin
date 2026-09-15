@@ -46,7 +46,7 @@ def _identity(registry: Registry) -> tuple[object, ...]:
     """Return a stable, content-based identity for one validated registry."""
     return (
         tuple(str(root) for root in registry.approved_roots),
-        tuple((item.project_id, item.name, str(item.path), item.enabled,
+        tuple((item.project_id, item.name, str(item.path.expanduser().resolve(strict=False)), item.enabled,
                item.remote, item.default_branch) for item in registry.projects),
     )
 
@@ -62,9 +62,9 @@ def _with_process_epoch(config_path: Path, registry: Registry) -> Registry:
 
 
 def _required_string(value: Any, field: str) -> str:
-    if not isinstance(value, str) or not value.strip():
+    if not isinstance(value, str) or not value or value != value.strip():
         raise RegistryError(f"INVALID_{field.upper()}")
-    return value.strip()
+    return value
 
 
 def load_registry(config_path: Path) -> Registry:

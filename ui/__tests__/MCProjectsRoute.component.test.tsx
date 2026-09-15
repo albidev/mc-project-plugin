@@ -26,7 +26,7 @@ function installDom() {
   return window;
 }
 
-function response(data: unknown) { return new Response(JSON.stringify({ ok: true, data, meta: { schemaVersion: 1 } }), { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+function response(data: unknown) { return new Response(JSON.stringify({ ok: true, data, meta: { schemaVersion: 1, requestId: 'test-request', observedAt: '2026-09-14T10:00:00+00:00' } }), { status: 200, headers: { 'Content-Type': 'application/json' } }); }
 
 async function mountedRoute(snapshot = fixture.data, allowReadBack = false) {
   const window = installDom();
@@ -79,7 +79,7 @@ test('renders branch log refs, parents, and merge metadata without losing commit
   const snapshot = structuredClone(fixture.data);
   snapshot.branchLogs.main = [{
     hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', shortHash: 'bbbbbbb', subject: 'Merge feature/ui', author: 'Maintainer', date: '2026-09-14T11:00:00+00:00',
-    merge: true, refs: ['HEAD -> main', 'origin/main'], parents: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'cccccccccccccccccccccccccccccccccccccc'],
+    merge: true, refs: ['HEAD -> main', 'origin/main'], parents: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'cccccccccccccccccccccccccccccccccccccccc'],
   }];
   const root = createRoot(host);
   await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'branch', value: 'main' }, snapshot })); await sleep(); });
@@ -93,8 +93,23 @@ test('renders branch log refs, parents, and merge metadata without losing commit
     assert.match(text(host), /HEAD -> main/);
     assert.match(text(host), /origin\/main/);
     assert.match(text(host), /aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/);
-    assert.match(text(host), /cccccccccccccccccccccccccccccccccccccc/);
+    assert.match(text(host), /cccccccccccccccccccccccccccccccccccccccc/);
     assert.match(text(host), /merge: true/);
+  } finally { await act(async () => root.unmount()); }
+});
+
+
+test('isolates branch log capability errors from the last-known-good panel', { concurrency: false }, async () => {
+  installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const snapshot = structuredClone(fixture.data);
+  snapshot.capabilities.branchLogs.status = 'error';
+  snapshot.capabilities.branchLogs.errorCode = 'GIT_TIMEOUT';
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'branch', value: 'main' }, snapshot })); await sleep(); });
+  try {
+    assert.match(text(host), /Unable to load branch log/);
+    assert.equal(host.querySelector('[data-testid="git-log-terminal"]'), null);
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -166,12 +181,14 @@ test('renders mobile order and verifies enabled mutation POST plus snapshot read
   const clean = structuredClone(fixture.data);
   clean.workingTree.files = [];
   clean.capabilities.workingTree.value.files = [];
+  clean.branches.local = [{ name: 'feature/test', current: true, tracking: null, remoteAlias: 'origin', repository: clean.branches.repository, relation: 'no-upstream', ahead: 0, behind: 0 }];
+  clean.capabilities.branches.value = clean.branches;
   const { host, root, window } = await mountedRoute(clean, true);
   let mutationCalls = 0;
   const originalFetch = window.fetch;
   window.fetch = async (input, init) => {
     const url = String(input);
-    if (url.includes('/branch/switch')) { mutationCalls += 1; assert.equal(init?.method, 'POST'); return response({ verified: true, generation: 2 }); }
+    if (url.includes('/branch/switch')) { mutationCalls += 1; assert.equal(init?.method, 'POST'); return response({ verified: true, generation: 1, project_id: 'demo', branch: 'feature/test', tracking: null, status: 'clean', created: false }); }
     return originalFetch(input, init);
   };
   globalThis.fetch = window.fetch;
@@ -193,9 +210,34 @@ test('renders mobile order and verifies enabled mutation POST plus snapshot read
   } finally { await act(async () => root.unmount()); }
 });
 
+test('renders the selected branch as a terminal graph and routes commit selection to detail', { concurrency: false }, async () => {
+  const snapshot = structuredClone(fixture.data);
+  snapshot.branchLogs.main = [
+    { hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', shortHash: 'bbbbbbb', subject: 'Merge feature/ui', author: 'Maintainer', date: '2026-09-14T11:00:00+00:00', merge: true, refs: ['HEAD -> main', 'origin/main'], parents: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'cccccccccccccccccccccccccccccccccccccccc'] },
+    { hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', shortHash: 'aaaaaaa', subject: 'main work', author: 'Maintainer', date: '2026-09-14T10:00:00+00:00', merge: false, refs: [], parents: [] },
+    { hash: 'cccccccccccccccccccccccccccccccccccccccc', shortHash: 'ccccccc', subject: 'feature work', author: 'Contributor', date: '2026-09-14T09:00:00+00:00', merge: false, refs: [], parents: [] },
+  ];
+  snapshot.capabilities.branchLogs.value = snapshot.branchLogs;
+  const { host, root } = await mountedRoute(snapshot);
+  try {
+    await click(host, 'button[data-branch-name="main"]');
+    assert.ok(host.querySelector('[data-testid="git-log-terminal"]'));
+    assert.equal(host.querySelectorAll('[data-testid="git-log-commit-row"]').length, 3);
+    assert.ok(host.querySelector('[data-testid="git-log-ref"]'));
+    assert.ok(host.querySelector('[data-testid="git-log-selected-row"]'));
+    assert.equal(host.querySelector('[data-testid="context-detail"]'), null);
+    await act(async () => { (host.querySelectorAll<HTMLElement>('[data-testid="git-log-commit-row"]')[1])?.click(); await sleep(100); });
+    assert.ok(host.querySelector('[data-testid="context-commit-detail"]'));
+    assert.match(text(host), /commit detail from backend/);
+    await act(async () => { (host.querySelectorAll<HTMLElement>('[data-testid="git-log-commit-row"]')[1])?.click(); await sleep(100); });
+    assert.equal(host.querySelector('[data-testid="context-commit-detail"]'), null);
+    assert.match(text(host), /Select a commit to inspect its details/);
+  } finally { await act(async () => root.unmount()); }
+});
+
 test('renders capability notice and retains last-good DOM after a failed refresh', { concurrency: false }, async () => {
   const stale = structuredClone(fixture.data);
-  stale.capabilities.github.status = 'stale'; stale.capabilities.github.stale = true; stale.github.status = 'stale';
+  stale.capabilities.github.status = 'stale'; stale.capabilities.github.stale = true; stale.capabilities.github.value.status = 'stale'; stale.github.status = 'stale';
   const { host, root } = await mountedRoute(stale);
   try {
     assert.match(text(host), /GitHub: stale; last-known-good data shown/);

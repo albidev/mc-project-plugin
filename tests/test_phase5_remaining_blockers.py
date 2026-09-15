@@ -136,8 +136,8 @@ def test_pre_command_context_revalidation_blocks_git(tmp_path):
     mutations.runner_factory = MustNotRun
     with pytest.raises(ServiceError) as exc:
         mutations.create(context, "feature/pre-command")
-    assert exc.value.code == "PATH_OUTSIDE_APPROVED_ROOT"
-    assert exc.value.status_code == 400
+    assert exc.value.code == "UNKNOWN_PROJECT"
+    assert exc.value.status_code == 404
     assert calls == [True]
     assert service._mutation_status("demo") == "idle"
 
@@ -310,7 +310,7 @@ def test_mutation_timeout_is_indeterminate_and_remains_locked_out(tmp_path):
     mutations.runner_factory = TimeoutRunner
     with pytest.raises(ServiceError) as exc:
         mutations.create(context, "feature/timeout")
-    assert (exc.value.code, exc.value.status_code) == ("INDETERMINATE", 504)
+    assert (exc.value.code, exc.value.status_code) == ("INDETERMINATE", 409)
     assert service._mutation_status("demo") == "indeterminate"
     with pytest.raises(ServiceError) as locked:
         mutations.create(context, "feature/retry")

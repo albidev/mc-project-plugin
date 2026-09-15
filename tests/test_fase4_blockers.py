@@ -170,7 +170,7 @@ def test_github_cache_write_is_generation_guarded(tmp_path: Path):
     release.set()
     first.join(timeout=2)
     assert "first" in result
-    assert service._github_good["demo"][1]["status"] == "ready"
+    assert service._github_good["demo"][1]["status"] == "empty"
 
 
 def test_final_marker_change_during_github_retries_complete_composition(tmp_path: Path):
@@ -214,7 +214,7 @@ def test_registry_project_identity_change_invalidates_all_service_state(monkeypa
     service._generation["demo"] = 3
     service._snapshots["demo"] = {"snapshotId": "old"}
     service._last_good["demo"] = {"snapshotId": "old"}
-    service._github_good["demo"] = (0, {"status": "ready"})
+    service._github_good["demo"] = (0, {"status": "ready"}, ("/old", "origin", "old-url"))
     endpoints._service()
     assert service._generation == {}
     assert service._snapshots == {}

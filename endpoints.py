@@ -19,7 +19,7 @@ from service import ProjectService
 
 _MISSING = object()
 _PROJECT_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
-_COMMIT = re.compile(r"^[0-9a-fA-F]{7,64}$")
+_COMMIT = re.compile(r"^[0-9a-fA-F]{40}$")
 _MAX_PR = 1_000_000
 _RUNTIME_LOCK = threading.RLock()
 _REGISTRY = None
@@ -50,12 +50,7 @@ def _mutation_body(body: object, fields: set[str]) -> dict[str, str]:
     branch = body.get("branch", body.get("name"))
     if not _PROJECT_ID.fullmatch(project_id) or not isinstance(branch, str):
         raise ServiceError("INVALID_REQUEST", 400)
-    try:
-        validate_branch_name(branch)
-    except ServiceError as exc:
-        if exc.code == "INVALID_BRANCH_NAME":
-            raise ServiceError("INVALID_REQUEST", 400) from exc
-        raise
+    validate_branch_name(branch)
     return body
 
 
@@ -68,6 +63,10 @@ def _params(params: object, allowed: set[str]) -> Mapping[str, list[str]]:
         if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
             raise ServiceError("INVALID_REQUEST", 400)
     return params
+
+
+def _safe_optional_identifier(value: str | None) -> bool:
+    return value is None or (value.isascii() and 0 < len(value) <= 256 and all(ord(char) >= 32 for char in value))
 
 
 def _one(params: Mapping[str, list[str]], name: str, required: bool = True) -> str | None:
@@ -112,9 +111,12 @@ def _run(operation: Callable[[], dict[str, object]]) -> dict[str, object]:
     try:
         return operation()
     except Exception as exc:
-        mapped = service_error_from(exc)
         if isinstance(exc, ServiceError):
-            raise
+            public = {"BRANCH_NOT_FOUND": ("NOT_FOUND", 404), "BRANCH_ALREADY_EXISTS": ("INVALID_REQUEST", 400)}.get(exc.code)
+            if public is not None:
+                raise ServiceError(public[0], public[1]) from exc
+            raise service_error_from(exc) from exc
+        mapped = service_error_from(exc)
         raise mapped from exc
 
 
@@ -134,18 +136,24 @@ def listProjects(body: dict[str, Any], params: Mapping[str, list[str]], auth: ob
     _auth(auth)
     _get_body(body)
     _params(params, set())
-    registry, _ = _runtime()
-    return _ok([{"project_id": p.project_id, "name": p.name, "enabled": p.enabled, "remote": p.remote, "default_branch": p.default_branch} for p in registry.projects])
-
+    return _run(lambda: _ok([{"project_id": p.project_id, "name": p.name, "enabled": p.enabled, "remote": p.remote, "default_branch": p.default_branch} for p in _runtime()[0].projects if p.enabled]))
 
 def getSnapshot(body: dict[str, Any], params: Mapping[str, list[str]], auth: object = _MISSING) -> dict[str, object]:
     _auth(auth); _get_body(body)
-    values = _params(params, {"project_id"})
+    values = _params(params, {"project_id", "recovery"})
     project_id = _one(values, "project_id")
+    recovery = _one(values, "recovery", required=False)
+    if recovery not in {None, "true"}:
+        raise ServiceError("INVALID_REQUEST", 400)
     if not project_id or not _PROJECT_ID.fullmatch(project_id):
         raise ServiceError("INVALID_REQUEST", 400)
-    registry, service = _runtime()
-    return _run(lambda: _ok(service.snapshot(resolve_context(registry, project_id))))
+    def operation() -> dict[str, object]:
+        registry, service = _runtime()
+        context = resolve_context(registry, project_id)
+        if recovery == "true":
+            service.recover_mutation(context)
+        return _ok(service.snapshot(context, _allow_recovery=recovery == "true"))
+    return _run(operation)
 
 
 def getCommitDetail(body: dict[str, Any], params: Mapping[str, list[str]], auth: object = _MISSING) -> dict[str, object]:
@@ -157,15 +165,19 @@ def getCommitDetail(body: dict[str, Any], params: Mapping[str, list[str]], auth:
     registry_epoch = _one(values, "registryEpoch", required=False)
     context_identity = _one(values, "contextIdentity", required=False)
     snapshot_id = _one(values, "snapshotId", required=False)
-    if generation is not None and (not generation.isdecimal() or int(generation) < 1):
+    if not all(_safe_optional_identifier(value) for value in (process_instance_id, context_identity, snapshot_id)):
         raise ServiceError("INVALID_REQUEST", 400)
-    if registry_epoch is not None and (not registry_epoch.isdecimal() or int(registry_epoch) < 1):
+    if generation is not None and (not generation.isascii() or not generation.isdecimal() or len(generation) > 9 or int(generation) < 1):
+        raise ServiceError("INVALID_REQUEST", 400)
+    if registry_epoch is not None and (not registry_epoch.isascii() or not registry_epoch.isdecimal() or len(registry_epoch) > 9 or int(registry_epoch) < 1):
         raise ServiceError("INVALID_REQUEST", 400)
     if not project_id or not _PROJECT_ID.fullmatch(project_id) or not commit or not _COMMIT.fullmatch(commit):
         raise ServiceError("INVALID_REQUEST", 400)
-    registry, service = _runtime()
-    return _run(lambda: _ok(service.commit_detail(resolve_context(registry, project_id), commit, int(generation) if generation else None,
-                                                   process_instance_id, int(registry_epoch) if registry_epoch else None, context_identity, snapshot_id)))
+    def operation() -> dict[str, object]:
+        registry, service = _runtime()
+        return _ok(service.commit_detail(resolve_context(registry, project_id), commit, int(generation) if generation else None,
+                                          process_instance_id, int(registry_epoch) if registry_epoch else None, context_identity, snapshot_id))
+    return _run(operation)
 
 
 def getPullRequestDetail(body: dict[str, Any], params: Mapping[str, list[str]], auth: object = _MISSING) -> dict[str, object]:
@@ -177,11 +189,13 @@ def getPullRequestDetail(body: dict[str, Any], params: Mapping[str, list[str]], 
     registry_epoch = _one(values, "registryEpoch", required=False)
     context_identity = _one(values, "contextIdentity", required=False)
     snapshot_id = _one(values, "snapshotId", required=False)
-    if generation is not None and (not generation.isdecimal() or int(generation) < 1):
+    if not all(_safe_optional_identifier(value) for value in (process_instance_id, context_identity, snapshot_id)):
         raise ServiceError("INVALID_REQUEST", 400)
-    if registry_epoch is not None and (not registry_epoch.isdecimal() or int(registry_epoch) < 1):
+    if generation is not None and (not generation.isascii() or not generation.isdecimal() or len(generation) > 9 or int(generation) < 1):
         raise ServiceError("INVALID_REQUEST", 400)
-    if not project_id or not _PROJECT_ID.fullmatch(project_id) or not number or not number.isdecimal() or not (1 <= int(number) <= _MAX_PR):
+    if registry_epoch is not None and (not registry_epoch.isascii() or not registry_epoch.isdecimal() or len(registry_epoch) > 9 or int(registry_epoch) < 1):
+        raise ServiceError("INVALID_REQUEST", 400)
+    if not project_id or not _PROJECT_ID.fullmatch(project_id) or not number or not number.isascii() or not number.isdecimal() or len(number) > 7 or not (1 <= int(number) <= _MAX_PR):
         raise ServiceError("INVALID_PULL_REQUEST", 400)
     def operation() -> dict[str, object]:
         registry, service = _runtime()

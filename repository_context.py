@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import errno
 import os
 from pathlib import Path
+import re
 import selectors
 import signal
 import subprocess
@@ -147,9 +148,13 @@ def _run_git(path: Path, operation: str, args: list[str]) -> str:
                     pass
 
 
-def _valid_remote_url(remote: str) -> bool:
+def _valid_remote_url(remote: str, *, allow_filesystem: bool = False) -> bool:
+    if ("\\" in remote or re.search(r"%2e|%2f|%5c", remote, re.IGNORECASE) or re.search(r"(?::|/)(?:\.{1,2})(?:/|$)", remote)):
+        return False
     if any(ord(char) < 32 or ord(char) == 127 for char in remote) or any(char.isspace() for char in remote):
         return False
+    if remote.startswith('/'):
+        return allow_filesystem
     try:
         parsed = urlparse(remote)
         port = parsed.port
@@ -157,12 +162,17 @@ def _valid_remote_url(remote: str) -> bool:
         return False
     if parsed.scheme in {"https", "ssh", "git"}:
         host = parsed.hostname
-        return (bool(host) and not host.startswith("-") and not parsed.username and not parsed.password
+        username_ok = parsed.username == "git" if parsed.scheme == "ssh" else parsed.username is None
+        return (bool(host) and username_ok and not host.startswith("-") and not parsed.password
                 and not parsed.query and not parsed.fragment and (port is None or 1 <= port <= 65535))
     if remote.startswith("git@") and ":" in remote:
         host, path = remote[4:].split(":", 1)
         return bool(host and path and not host.startswith("-") and all(c.isalnum() or c in ".-_" for c in host))
     return False
+
+
+def public_remote_url(remote: object) -> str | None:
+    return remote if isinstance(remote, str) and _valid_remote_url(remote) else None
 
 
 def resolve_context(registry: Registry, project_id: str) -> RepositoryContext:

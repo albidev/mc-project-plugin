@@ -15,6 +15,7 @@ export async function resolve(specifier, context, nextResolve) {
 }
 
 export async function load(url, context, nextLoad) {
+  if (url.endsWith('.css')) return { format: 'module', source: 'export default {};', shortCircuit: true };
   if (url.endsWith('.tsx')) {
     const source = await readFile(new URL(url), 'utf8');
     return { format: 'module', source: ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX } }).outputText, shortCircuit: true };

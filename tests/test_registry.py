@@ -131,6 +131,15 @@ def test_more_than_fifty_projects_is_rejected(tmp_path: Path) -> None:
         load_registry(write_config(tmp_path, projects))
 
 
+
+def test_github_ssh_remote_with_fixed_git_user_is_accepted(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    git_repo(repo)
+    subprocess.run(["git", "-C", str(repo), "remote", "set-url", "origin", "ssh://git@github.com/example/repo.git"], check=True)
+    registry = load_registry(write_config(tmp_path, [project(repo)]))
+    assert resolve_context(registry, "demo").remote_url == "ssh://git@github.com/example/repo.git"
+
+
 def test_remote_url_with_credentials_is_rejected(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     git_repo(repo)
@@ -145,6 +154,7 @@ def test_remote_url_with_credentials_is_rejected(tmp_path: Path) -> None:
     "https://example.com:99999/repo.git",
     "https://[broken/repo.git",
     "git@:repo.git",
+    "/tmp/local-repository.git",
 ])
 def test_malformed_remote_url_is_rejected(tmp_path: Path, remote: str) -> None:
     repo = tmp_path / "repo"

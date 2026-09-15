@@ -58,6 +58,7 @@ def test_local_failure_uses_last_good_and_stale_capabilities(tmp_path: Path) -> 
     first = good.snapshot(context)
     failing = ProjectService(good.registry, lambda _ctx: FailingGit([]), lambda _ctx: Github())
     failing._last_good["demo"] = first
+    failing._cache_identity["demo"] = failing._cache_key(context)
     second = failing.snapshot(context)
     assert second["localStatus"] == "stale"
     assert second["capabilities"]["workingTree"]["stale"] is True

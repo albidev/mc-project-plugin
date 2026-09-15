@@ -1,0 +1,19 @@
+[data-testid='git-log-terminal'] [data-testid^='graph-column-row-'] {
+  min-height: 0 !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  padding: 0 !important;
+  border: 0 !important;
+  box-sizing: border-box;
+}
+
+[data-testid='git-log-terminal'] [data-testid='left-down-curve-bottom-line'],
+[data-testid='git-log-terminal'] [data-testid='left-up-curve-top-line'] {
+  left: calc(50% - 3px) !important;
+}
+
+[data-testid='git-log-terminal'] [data-testid='left-down-curve-curved-line'],
+[data-testid='git-log-terminal'] [data-testid='left-up-curve-curved-line'] {
+  transform: translateX(-2px);
+}

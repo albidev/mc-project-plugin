@@ -39,7 +39,9 @@ def _valid_date(value: object) -> bool:
 
 
 def _valid_repository_name(value: object) -> bool:
-    return isinstance(value, str) and bool(_REPO.fullmatch(value))
+    if not isinstance(value, str) or not _REPO.fullmatch(value):
+        return False
+    return all(part not in {'.', '..'} and not part.startswith('.') and not part.endswith('.lock') for part in value.split('/'))
 
 
 def repository_from_remote(remote: str) -> str:
@@ -54,11 +56,11 @@ def repository_from_remote(remote: str) -> str:
         else:
             raise GitHubAdapterError("UNSUPPORTED_REMOTE")
     else:
-        if parsed.scheme not in {"https", "ssh"} or port is not None or parsed.username not in {None, "git"} or parsed.password or parsed.query or parsed.fragment:
+        if parsed.scheme not in {"https", "ssh"} or port is not None or (parsed.scheme == "ssh" and parsed.username != "git") or (parsed.scheme == "https" and parsed.username is not None) or parsed.password or parsed.query or parsed.fragment:
             raise GitHubAdapterError("INVALID_GITHUB_REPOSITORY")
         value = parsed.path.lstrip("/")
     value = value.removesuffix(".git")
-    if not _REPO.fullmatch(value):
+    if not _valid_repository_name(value):
         raise GitHubAdapterError("INVALID_GITHUB_REPOSITORY")
     return value
 
@@ -95,7 +97,7 @@ class GitHubAdapter:
                     raise GitHubAdapterError("GITHUB_MALFORMED_RESPONSE")
             if not isinstance(item["base"].get("repo"), dict) or item["base"]["repo"].get("full_name") != self.repository:
                 raise GitHubAdapterError("GITHUB_MALFORMED_RESPONSE")
-            result.append({"number": item["number"], "title": item["title"], "url": item["html_url"], "draft": item["draft"], "head": item["head"]["ref"], "base": item["base"]["ref"], "head_repository": (item["head"].get("repo") or {}).get("full_name"), "base_repository": (item["base"].get("repo") or {}).get("full_name"), "created_at": item["created_at"]})
+            result.append({"number": item["number"], "title": item["title"], "url": item["html_url"], "draft": item["draft"], "head": item["head"]["ref"], "base": item["base"]["ref"], "head_repository": (item["head"].get("repo") or {}).get("full_name"), "base_repository": (item["base"].get("repo") or {}).get("full_name"), "created_at": item["created_at"], "repository": self.repository})
         return result
 
     def issues(self) -> list[dict[str, object]]:
@@ -111,7 +113,7 @@ class GitHubAdapter:
                 continue
             if not isinstance(item, dict) or isinstance(item.get("number"), bool) or not isinstance(item.get("number"), int) or item["number"] <= 0 or not isinstance(item.get("title"), str) or not _github_url(item.get("html_url"), self.repository, f"issues/{item.get('number')}" ) or not _valid_date(item.get("created_at")):
                 raise GitHubAdapterError("GITHUB_MALFORMED_RESPONSE")
-            result.append({"number": item["number"], "title": item["title"], "url": item["html_url"], "created_at": item["created_at"]})
+            result.append({"number": item["number"], "title": item["title"], "url": item["html_url"], "created_at": item["created_at"], "repository": self.repository})
         return result
 
     def pull_request_detail(self, number: int) -> dict[str, object]:

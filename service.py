@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime, timezone
 import json
 import threading
 from contextlib import contextmanager
@@ -11,17 +10,18 @@ from typing import Callable
 import uuid
 
 from errors import ServiceError, service_error_from
-from repository_context import RepositoryContext
+from repository_context import RepositoryContext, _valid_remote_url, public_remote_url
+from git_runner import GitRunner, GitRunnerError
 from snapshot import MAX_STALE_SECONDS, capability, fingerprint, observed_at
 
 _PROCESS_INSTANCE_ID = str(uuid.uuid4())
 MAX_AGGREGATE_BYTES = 10 * 1024 * 1024
 MAX_CAPABILITY_BYTES = 2 * 1024 * 1024
 DETAIL_OUTPUT_BYTES = 1024 * 1024
-MAX_FILE_DIFFS = 100
-MAX_BRANCH_LOGS = 100
+MAX_FILE_DIFFS = 2000
+MAX_BRANCH_LOGS = 500
 MAX_BRANCH_LOG_COMMITS = 100
-MAX_FILE_DIFF_BYTES = 64 * 1024
+MAX_FILE_DIFF_BYTES = 1024 * 1024
 
 
 class ProjectService:
@@ -33,13 +33,28 @@ class ProjectService:
         self._lock = threading.RLock()
         self._generation: dict[str, int] = {}
         self._last_good: dict[str, dict[str, object]] = {}
-        self._github_good: dict[str, tuple[float, dict[str, object]]] = {}
+        self._cache_identity: dict[str, tuple[str, str, str]] = {}
+        self._local_stale_since: dict[str, str] = {}
+        self._github_stale_since: dict[str, str] = {}
+        self._github_good: dict[str, tuple[float, dict[str, object], tuple[str, str, str]]] = {}
         self._snapshots: dict[str, dict[str, object]] = {}
         self._inflight: dict[str, threading.Event] = {}
         self._local_ready: dict[str, threading.Event] = {}
         self._local_read_gates: dict[str, threading.RLock] = {}
         self._mutation_gates: dict[str, threading.Lock] = {}
         self._mutation_state: dict[str, str] = {}
+
+    @staticmethod
+    def _configured_remote_url(context: RepositoryContext) -> str | None:
+        try:
+            value = GitRunner(context.path, timeout=2, output_limit=4096).run("remote", ["remote", "get-url", context.remote]).strip()
+        except GitRunnerError:
+            return None
+        return value or None
+
+    @staticmethod
+    def _cache_key(context: RepositoryContext) -> tuple[str, str, str]:
+        return (str(context.path.resolve()), context.remote, context.remote_url)
 
     @staticmethod
     def _gate_key(context: RepositoryContext) -> str:
@@ -70,6 +85,9 @@ class ProjectService:
         finally:
             gate.release()
 
+    def recover_mutation(self, context: RepositoryContext) -> None:
+        self._assert_context(context)
+
     def begin_mutation(self, context: RepositoryContext) -> None:
         with self._lock:
             state = self._mutation_state.get(context.project_id, "idle")
@@ -87,6 +105,15 @@ class ProjectService:
             if current == "indeterminate" and not indeterminate:
                 return
             self._mutation_state[project_id] = "indeterminate" if indeterminate else "idle"
+
+    def finish_mutation_verified(self, project_id: str, registry_identity: tuple[object, ...]) -> bool:
+        with self._lock:
+            if (self._mutation_state.get(project_id, "idle") != "running"
+                    or self._registry_identity(self.registry) != registry_identity):
+                self._mutation_state[project_id] = "indeterminate"
+                return False
+            self._mutation_state[project_id] = "idle"
+            return True
 
     @staticmethod
     def _registry_identity(registry) -> tuple[object, ...]:
@@ -106,6 +133,9 @@ class ProjectService:
                 }
                 self._generation.clear()
                 self._last_good.clear()
+                self._cache_identity.clear()
+                self._local_stale_since.clear()
+                self._github_stale_since.clear()
                 self._github_good.clear()
                 self._snapshots.clear()
                 self._mutation_state.clear()
@@ -121,6 +151,11 @@ class ProjectService:
             raise ServiceError("CONTEXT_MISMATCH", 409) from exc
         if (not same_path or record.name != context.name or record.remote != context.remote
                 or record.default_branch != context.default_branch):
+            raise ServiceError("CONTEXT_MISMATCH", 409)
+        if not _valid_remote_url(context.remote_url, allow_filesystem=True):
+            raise ServiceError("CONTEXT_MISMATCH", 409)
+        configured_remote = self._configured_remote_url(context)
+        if (configured_remote is None and (context.path / ".git").exists()) or (configured_remote is not None and configured_remote != context.remote_url):
             raise ServiceError("CONTEXT_MISMATCH", 409)
         if getattr(context, "registry_epoch", self.registry.epoch) != self.registry.epoch:
             raise ServiceError("CONTEXT_STALE", 409)
@@ -153,6 +188,23 @@ class ProjectService:
     def _bounded(value: object) -> None:
         if len(json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str).encode("utf-8")) > MAX_CAPABILITY_BYTES:
             raise ServiceError("OUTPUT_LIMIT", 413)
+
+    @staticmethod
+    def _public_branches(value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        result = dict(value)
+        for key in ("local", "remote"):
+            items = value.get(key)
+            if isinstance(items, list):
+                result[key] = [
+                    {**item, "repository": public_remote_url(item.get("repository"))}
+                    if isinstance(item, dict) and "repository" in item else item
+                    for item in items
+                ]
+        if "repository" in value:
+            result["repository"] = public_remote_url(value.get("repository"))
+        return result
 
     @staticmethod
     def _detail_bounded(value: object) -> None:
@@ -202,6 +254,8 @@ class ProjectService:
             for _attempt in range(2):
                 try:
                     local, markers = self._read_local_once(context, git)
+                    with self._lock:
+                        self._cache_identity[context.project_id] = self._cache_key(context)
                     return local, markers, None, git
                 except Exception as exc:
                     last_error = exc
@@ -211,7 +265,7 @@ class ProjectService:
             last_error = exc
         mapped = service_error_from(last_error or RuntimeError("local unavailable"))
         with self._lock:
-            cached = deepcopy(self._last_good.get(context.project_id))
+            cached = deepcopy(self._last_good.get(context.project_id)) if self._cache_identity.get(context.project_id) == self._cache_key(context) else None
         if cached is None:
             raise mapped from last_error
         cached["localGeneration"] = generation
@@ -226,19 +280,21 @@ class ProjectService:
         cached["localStatus"] = "stale"
         return {key: cached[key] for key in ("workingTree", "branches", "commits", "fileDiffs", "branchLogs")}, cached["fingerprints"], mapped.code, None
 
-    def snapshot(self, context: RepositoryContext, _allow_retry: bool = True) -> dict[str, object]:
+    def snapshot(self, context: RepositoryContext, _allow_retry: bool = True, _allow_recovery: bool = False) -> dict[str, object]:
         """Refresh once per project; concurrent callers see the last good snapshot."""
         self._assert_context(context)
+        recovery_identity = self._registry_identity(self.registry) if _allow_recovery else None
         state = self._mutation_status(context.project_id)
         if state == "running":
             raise ServiceError("MUTATION_IN_FLIGHT", 409)
-        if state == "indeterminate":
+        if state == "indeterminate" and not _allow_recovery:
             raise ServiceError("MUTATION_INDETERMINATE", 409)
         while True:
             with self._lock:
                 event = self._inflight.get(context.project_id)
                 previous = deepcopy(self._last_good.get(context.project_id))
-                if event is not None and previous is None:
+                cache_valid = self._cache_identity.get(context.project_id) == self._cache_key(context)
+                if event is not None and (previous is None or not cache_valid):
                     # There is no coherent cached snapshot to return.  Do not
                     # enter the adapter path while the owner holds the shared
                     # mutation gate, even if its local read has completed.
@@ -253,9 +309,23 @@ class ProjectService:
         try:
             with self.mutation_gate(context):
                 state = self._mutation_status(context.project_id)
-                if state != "idle":
+                if state != "idle" and not (_allow_recovery and state == "indeterminate"):
                     raise ServiceError("MUTATION_IN_FLIGHT" if state == "running" else "MUTATION_INDETERMINATE", 409)
-                return self._snapshot_impl(context, _allow_retry)
+                result = self._snapshot_impl(context, _allow_retry)
+                if _allow_recovery:
+                    local_capabilities = result.get("capabilities", {})
+                    local_fresh = result.get("localStatus") == "ready" and isinstance(local_capabilities, dict) and all(
+                        isinstance(local_capabilities.get(name), dict) and local_capabilities[name].get("status") not in {"stale", "error", "unavailable"}
+                        for name in ("workingTree", "branches", "commits", "branchLogs")
+                    )
+                    if not local_fresh:
+                        raise ServiceError("MUTATION_INDETERMINATE", 409, "RECOVERY_NOT_CONFIRMED")
+                    with self._lock:
+                        if (self._mutation_state.get(context.project_id) != "indeterminate"
+                                or self._registry_identity(self.registry) != recovery_identity):
+                            raise ServiceError("MUTATION_INDETERMINATE", 409, "RECOVERY_CONTEXT_CHANGED")
+                        self._mutation_state[context.project_id] = "idle"
+                return result
         finally:
             with self._lock:
                 if self._inflight.get(context.project_id) is owner_event:
@@ -278,49 +348,89 @@ class ProjectService:
                 ready = self._local_ready.get(context.project_id)
             if ready is not None:
                 ready.set()
-        working, branches, commits = local["workingTree"], local["branches"], local["commits"]
-        file_diffs: dict[str, str] = {}
-        branch_logs: dict[str, list[dict[str, object]]] = {}
+        with self._lock:
+            if local_error:
+                local_stale_since = self._local_stale_since.setdefault(context.project_id, observed_at())
+            else:
+                self._local_stale_since.pop(context.project_id, None)
+                local_stale_since = None
+        working, branches, commits = local["workingTree"], self._public_branches(local["branches"]), local["commits"]
+        cached_file_diffs = local.get("fileDiffs") if local_error else {}
+        cached_branch_logs = local.get("branchLogs") if local_error else {}
+        cached_warnings = local.get("warnings") if local_error else []
+        file_diffs: dict[str, str] = cached_file_diffs if isinstance(cached_file_diffs, dict) else {}
+        branch_logs: dict[str, list[dict[str, object]]] = cached_branch_logs if isinstance(cached_branch_logs, dict) else {}
+        branch_logs_truncated = isinstance(cached_warnings, list) and "BRANCH_LOGS_TRUNCATED" in cached_warnings
+        file_diffs_byte_limited = False
+        branch_logs_error: str | None = None
+        aggregate_bytes = 0
+        if isinstance(branches, dict):
+            local_refs = branches.get("local", [])
+            remote_refs = branches.get("remote", [])
+            branch_logs_truncated = branch_logs_truncated or len(local_refs) + len(remote_refs) > MAX_BRANCH_LOGS
+            branches = {**branches, "local": local_refs[:MAX_BRANCH_LOGS] if isinstance(local_refs, list) else [], "remote": remote_refs[:MAX_BRANCH_LOGS] if isinstance(remote_refs, list) else []}
         if git is not None and not local_error:
             for entry in working.get("files", [])[:MAX_FILE_DIFFS]:
+                if aggregate_bytes >= MAX_AGGREGATE_BYTES:
+                    file_diffs_byte_limited = True
+                    break
                 path = entry.get("path") if isinstance(entry, dict) else None
                 if not isinstance(path, str):
                     continue
                 try:
                     diff = git.file_diff(path)
-                    if isinstance(diff, str) and len(diff.encode("utf-8")) <= MAX_FILE_DIFF_BYTES:
-                        file_diffs[path] = diff
-                except Exception:
+                    if isinstance(diff, str):
+                        diff_bytes = len(diff.encode("utf-8"))
+                        if diff_bytes > MAX_FILE_DIFF_BYTES:
+                            file_diffs_byte_limited = True
+                        elif aggregate_bytes + diff_bytes > MAX_AGGREGATE_BYTES:
+                            file_diffs_byte_limited = True
+                            break
+                        else:
+                            file_diffs[path] = diff
+                            aggregate_bytes += diff_bytes
+                except Exception as exc:
+                    if getattr(exc, "code", None) in {"OUTPUT_LIMIT", "GIT_OUTPUT_LIMIT"}:
+                        file_diffs_byte_limited = True
                     continue
             branch_names = [item.get("name") for item in branches.get("local", []) + branches.get("remote", [])
                             if isinstance(item, dict) and isinstance(item.get("name"), str)]
+            branch_logs_truncated = branch_logs_truncated or len(branch_names) > MAX_BRANCH_LOGS
             for branch_name in branch_names[:MAX_BRANCH_LOGS]:
+                if aggregate_bytes >= MAX_AGGREGATE_BYTES:
+                    branch_logs_truncated = True
+                    break
+                if not isinstance(branch_name, str):
+                    continue
                 try:
                     value = git.commits(branch_name)
                     if isinstance(value, list):
-                        branch_logs[branch_name] = value[:MAX_BRANCH_LOG_COMMITS]
-                except Exception:
-                    continue
+                        bounded_value = value[:MAX_BRANCH_LOG_COMMITS]
+                        value_bytes = len(json.dumps(bounded_value, ensure_ascii=False, separators=(",", ":"), default=str).encode("utf-8"))
+                        if aggregate_bytes + value_bytes <= MAX_AGGREGATE_BYTES:
+                            branch_logs[branch_name] = bounded_value
+                            aggregate_bytes += value_bytes
+                        else:
+                            branch_logs_truncated = True
+                            break
+                except Exception as exc:
+                    branch_logs_error = branch_logs_error or service_error_from(exc).code
+        has_branches = isinstance(branches, dict) and bool(branches.get("local") or branches.get("remote"))
         caps: dict[str, object] = {
             "workingTree": capability("stale" if local_error else ("ready" if working.get("files") else "empty"), "local_git", working, local_error, generation=generation),
-            "branches": capability("stale" if local_error else "ready", "local_git", branches, local_error, generation=generation),
+            "branches": capability("stale" if local_error else ("ready" if has_branches else "empty"), "local_git", branches, local_error, generation=generation),
             "commits": capability("stale" if local_error else ("ready" if commits else "empty"), "local_git", commits, local_error, generation=generation),
+            "branchLogs": capability("stale" if local_error else "error" if branch_logs_error else ("ready" if branch_logs else "empty"), "local_git", branch_logs, branch_logs_error, generation=generation),
         }
         if local_error:
-            stale_since = observed_at()
-            if previous:
-                previous_caps = previous.get("capabilities", {})
-                if isinstance(previous_caps, dict):
-                    for previous_cap in previous_caps.values():
-                        if isinstance(previous_cap, dict) and previous_cap.get("staleSince"):
-                            stale_since = previous_cap["staleSince"]
-                            break
-            for name in ("workingTree", "branches", "commits"):
+            stale_since = local_stale_since or observed_at()
+            for name in ("workingTree", "branches", "commits", "branchLogs"):
                 if isinstance(caps[name], dict):
                     caps[name]["staleSince"] = stale_since
         bounded_local: dict[str, object] = {}
+        file_diffs_limited = file_diffs_byte_limited
         for name, value, fallback in (("workingTree", working, {"files": []}),
-                                      ("branches", branches, {"local": [], "remote": []}),
+                                      ("branches", branches, {"local": [], "remote": [], "remoteAlias": context.remote, "repository": public_remote_url(context.remote_url)}),
                                       ("commits", commits, []),
                                       ("fileDiffs", file_diffs, {}),
                                       ("branchLogs", branch_logs, {})):
@@ -331,7 +441,10 @@ class ProjectService:
                 if exc.code != "OUTPUT_LIMIT":
                     raise
                 bounded_local[name] = fallback
-                caps[name] = capability("error", "local_git", fallback, "OUTPUT_LIMIT", generation=generation)
+                if name == "fileDiffs":
+                    file_diffs_limited = True
+                else:
+                    caps[name] = capability("error", "local_git", fallback, "OUTPUT_LIMIT", generation=generation)
         working, branches, commits = (bounded_local["workingTree"], bounded_local["branches"], bounded_local["commits"])
         file_diffs, branch_logs = bounded_local["fileDiffs"], bounded_local["branchLogs"]
         local = {"workingTree": working, "branches": branches, "commits": commits,
@@ -342,12 +455,15 @@ class ProjectService:
         try:
             github = self.github_factory(context)
             github_value = {"pullRequests": github.pull_requests(), "issues": github.issues(), "status": "ready"}
+            github_status = "ready" if github_value["pullRequests"] or github_value["issues"] else "empty";
+            github_value["status"] = github_status
             with self._lock:
                 if self._generation.get(context.project_id) != generation:
                     raise ServiceError("STALE_CONTEXT", 409, "STALE_SNAPSHOT")
                 self._bounded(github_value)
-                self._github_good[context.project_id] = (now, deepcopy(github_value))
-            caps["github"] = capability("ready", "github", github_value, generation=generation)
+                self._github_good[context.project_id] = (now, deepcopy(github_value), self._cache_key(context))
+                self._github_stale_since.pop(context.project_id, None)
+            caps["github"] = capability(github_status, "github", github_value, generation=generation)
         except Exception as exc:
             mapped = service_error_from(exc)
             github_error = mapped.code
@@ -358,9 +474,10 @@ class ProjectService:
             else:
                 with self._lock:
                     cached = self._github_good.get(context.project_id)
-                if cached is not None and now - cached[0] <= MAX_STALE_SECONDS:
+                if cached is not None and cached[2] == self._cache_key(context) and now - cached[0] <= MAX_STALE_SECONDS:
                     github_value = deepcopy(cached[1]); github_value["status"] = "stale"
-                    stale_since = datetime.fromtimestamp(time.time() - (now - cached[0]), timezone.utc).isoformat()
+                    with self._lock:
+                        stale_since = self._github_stale_since.setdefault(context.project_id, observed_at())
                     caps["github"] = capability("stale", "github", github_value, github_error, generation=generation, stale_since=stale_since)
                 else:
                     github_value = {"status": "unavailable", "pullRequests": [], "issues": []}
@@ -384,7 +501,7 @@ class ProjectService:
         last_updated = (previous or {}).get("lastUpdated") if local_error else observed_at()
         result = {
             "schemaVersion": 1, "project_id": context.project_id,
-            "project": {"name": context.name, "repository": context.remote_url},
+            "project": {"name": context.name, "repository": public_remote_url(context.remote_url)},
             "processInstanceId": self.process_instance_id, "registryEpoch": self.registry.epoch,
             "contextIdentity": context_identity, "localGeneration": generation,
             "snapshotId": str(uuid.uuid4()), "head": commits[0]["hash"] if commits else None,
@@ -392,10 +509,11 @@ class ProjectService:
             "fingerprints": {**markers, "workingTree": markers["status"], "branches": markers["refs/remotes"], "commits": markers["HEAD"], "local": fingerprint(local)},
             "capabilities": caps, "localStatus": "stale" if local_error else "ready", **local,
             "focusDefaults": {"kind": "file", "value": working.get("files", [None])[0].get("path") if working.get("files") else None},
-            "github": github_value, "warnings": ([local_error] if local_error else []) + ([github_error] if github_error else []),
+            "github": github_value, "warnings": ([local_error] if local_error else []) + ([github_error] if github_error else []) + ([branch_logs_error] if branch_logs_error else []) + (["BRANCH_LOGS_TRUNCATED"] if branch_logs_truncated else []) + (["OUTPUT_LIMIT"] if file_diffs_limited else []),
         }
         if len(json.dumps(result, ensure_ascii=False, separators=(",", ":"), default=str).encode("utf-8")) > MAX_AGGREGATE_BYTES:
             raise ServiceError("OUTPUT_LIMIT", 413)
+        self._assert_context(context)
         with self._lock:
             if self._generation.get(context.project_id) != generation:
                 raise ServiceError("STALE_CONTEXT", 409, "STALE_SNAPSHOT")
@@ -414,7 +532,11 @@ class ProjectService:
         with self._lock:
             current = self._snapshots.get(context.project_id)
         commits = (current or {}).get("commits", [])
-        if not any(isinstance(item, dict) and commit in {item.get("hash"), item.get("shortHash")} for item in commits):
+        branch_logs = (current or {}).get("branchLogs", {})
+        known_commits = list(commits) if isinstance(commits, list) else []
+        if isinstance(branch_logs, dict):
+            known_commits.extend(entry for entries in branch_logs.values() if isinstance(entries, list) for entry in entries)
+        if not any(isinstance(item, dict) and commit in {item.get("hash"), item.get("shortHash")} for item in known_commits):
             raise ServiceError("NOT_FOUND", 404)
         try:
             result = self.git_factory(context).commit_detail(commit)
@@ -435,6 +557,11 @@ class ProjectService:
         with self._lock:
             current = self._snapshots.get(context.project_id)
         github = (current or {}).get("github", {})
+        capabilities = (current or {}).get("capabilities", {})
+        github_capability = capabilities.get("github") if isinstance(capabilities, dict) else None
+        if isinstance(github_capability, dict) and github_capability.get("status") in {"unavailable", "error"} and isinstance(github_capability.get("errorCode"), str):
+            from github_adapter import GitHubAdapterError
+            raise service_error_from(GitHubAdapterError(github_capability["errorCode"]))
         pull_requests = github.get("pullRequests", []) if isinstance(github, dict) else []
         if not any(isinstance(item, dict) and item.get("number") == number for item in pull_requests):
             raise ServiceError("NOT_FOUND", 404)

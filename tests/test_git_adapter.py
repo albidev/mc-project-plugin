@@ -90,6 +90,38 @@ def test_git_log_allowlist_rejects_invalid_intermediate_ref(ref: str) -> None:
     ])
 
 
+
+
+def test_branch_listing_keeps_501st_ref_for_service_truncation(tmp_path: Path) -> None:
+    context, _ = make_repo(tmp_path)
+    adapter = GitAdapter(context)
+    local = "".join(f"branch-{index:03d}\t \t\t\n" for index in range(501))
+    adapter._run = lambda operation, _args: local if operation == "branches" else ""  # type: ignore[method-assign]
+    result = adapter.branches()
+    assert len(result["local"]) == 501
+
+
+
+def test_branch_listing_accepts_exactly_500_refs(tmp_path: Path) -> None:
+    context, _ = make_repo(tmp_path)
+    adapter = GitAdapter(context)
+    local = "".join(f"branch-{index:03d}\t \t\t\n" for index in range(500))
+    adapter._run = lambda operation, _args: local if operation == "branches" else ""  # type: ignore[method-assign]
+    assert len(adapter.branches()["local"]) == 500
+
+
+def test_commit_history_keeps_500_entries_instead_of_failing_at_501(tmp_path: Path) -> None:
+    context, _ = make_repo(tmp_path)
+    adapter = GitAdapter(context)
+    rows = []
+    for index in range(501):
+        commit_hash = f"{index + 1:040x}"
+        rows.append("\0".join([commit_hash, commit_hash[:7], f"commit {index}", "Test", "2026-09-14T10:00:00+00:00", "", ""]))
+    raw = "\n".join(rows) + "\n"
+    adapter._run = lambda operation, _args: raw if operation == "log" else ""  # type: ignore[method-assign]
+    assert len(adapter.commits("main")) == 500
+
+
 def test_reads_commit_timeline_and_detail(tmp_path: Path) -> None:
     context, _ = make_repo(tmp_path)
     adapter = GitAdapter(context)
@@ -172,6 +204,15 @@ def test_rejects_malformed_commit_detail_output(tmp_path: Path) -> None:
     adapter._run = lambda _operation, _args: "broken\n"  # type: ignore[method-assign]
     with pytest.raises(GitAdapterError, match="GIT_MALFORMED_OUTPUT"):
         adapter.commit_detail("0123456789abcdef0123456789abcdef01234567")
+
+
+def test_accepts_staged_and_unstaged_modification_status(tmp_path: Path) -> None:
+    context, repo = make_repo(tmp_path)
+    (Path(repo) / "README.md").write_text("staged\n")
+    subprocess.run(["git", "-C", repo, "add", "README.md"], check=True)
+    (Path(repo) / "README.md").write_text("staged and unstaged\n")
+    entries = GitAdapter(context).working_tree()["files"]
+    assert entries[0]["status"] == "M"
 
 
 def test_working_tree_rejects_path_deeper_than_32_components(tmp_path: Path) -> None:

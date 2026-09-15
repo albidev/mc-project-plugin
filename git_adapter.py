@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from pathlib import PurePosixPath
-
 from git_runner import GitRunner, GitRunnerError
 from ref_validation import is_valid_ref_name
 from repository_context import RepositoryContext
@@ -18,7 +18,7 @@ class GitAdapterError(RuntimeError):
 _SAFE_PATH = re.compile(r"^[^\x00]+$")
 _SAFE_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 _OBJECT_ID = re.compile(r"^[0-9a-fA-F]{40}$")
-_STATUS = {"M", "A", "D", "R", "C", "U", "??"}
+_STATUS = {"M", "A", "D", "R", "C", "U", "T", "??"}
 MAX_PATH_DEPTH = 32
 
 
@@ -65,7 +65,7 @@ def _validate_fingerprint_status(raw: object) -> str:
         status = record[:2]
         if status == "??":
             pass
-        elif any(char not in " MADRCU?!" for char in status) or status == "  ":
+        elif any(char not in " MADRCUT?!" for char in status) or status == "  ":
             raise GitAdapterError("GIT_MALFORMED_OUTPUT")
         try:
             _path(record[3:])
@@ -150,8 +150,15 @@ class GitAdapter:
             status, path = record[:2], record[3:]
             if not path:
                 raise GitAdapterError("GIT_MALFORMED_OUTPUT")
-            normalized = "??" if status == "??" else status[0] if status[0] in {"R", "C", "U"} else status.strip()
-            if normalized not in _STATUS or path.startswith("/") or ".." in PurePosixPath(path).parts:
+            if status == "??":
+                normalized = "??"
+            elif status[0] in {"M", "A", "D", "R", "C", "U", "T"}:
+                normalized = status[0]
+            elif status[1] in {"M", "A", "D", "R", "C", "U", "T"}:
+                normalized = status[1]
+            else:
+                raise GitAdapterError("GIT_MALFORMED_OUTPUT")
+            if path.startswith("/") or ".." in PurePosixPath(path).parts:
                 raise GitAdapterError("GIT_MALFORMED_OUTPUT")
             _path(path)
             entries.append({"path": path, "status": normalized})
@@ -210,9 +217,7 @@ class GitAdapter:
             except GitAdapterError as exc:
                 raise GitAdapterError("GIT_MALFORMED_OUTPUT") from exc
             alias = name.split("/", 1)[0]
-            remote.append({"name": name, "remoteAlias": alias, "repository": remote_urls[alias]})
-        if len(local) > 500 or len(remote) > 500:
-            raise GitAdapterError("GIT_OUTPUT_LIMIT")
+            remote.append({"name": name, "remoteAlias": alias, "repository": self.context.remote_url if alias == self.context.remote else None})
         return {"local": local, "remote": remote, "remoteAlias": self.context.remote, "repository": self.context.remote_url}
 
     def commits(self, ref: str) -> list[dict[str, object]]:
@@ -226,18 +231,21 @@ class GitAdapter:
                 fields.append("")
             if len(fields) != 7:
                 raise GitAdapterError("GIT_MALFORMED_OUTPUT")
-            if not re.fullmatch(r"[0-9a-fA-F]{40}", fields[0]) or not re.fullmatch(r"[0-9a-fA-F]{7,40}", fields[1]) or not fields[2] or not fields[3] or not fields[4]:
+            if not re.fullmatch(r"[0-9a-fA-F]{40}", fields[0]) or not re.fullmatch(r"[0-9a-fA-F]{7,40}", fields[1]) or not fields[0].lower().startswith(fields[1].lower()) or not fields[2] or not fields[3] or not fields[4]:
                 raise GitAdapterError("GIT_MALFORMED_OUTPUT")
             if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?[+-]\d{2}:\d{2}", fields[4]):
                 raise GitAdapterError("GIT_MALFORMED_OUTPUT")
-            if fields[5] and any(not re.fullmatch(r"[0-9a-fA-F]{40}", parent) for parent in fields[5].split()):
-                raise GitAdapterError("GIT_MALFORMED_OUTPUT")
+            try:
+                datetime.fromisoformat(fields[4])
+            except ValueError as exc:
+                raise GitAdapterError("GIT_MALFORMED_OUTPUT") from exc
+            parents = fields[5].split()
+            if len(parents) > 32 or (fields[5] and any(not re.fullmatch(r"[0-9a-fA-F]{40}", parent) for parent in parents)):
+                raise GitAdapterError("GIT_OUTPUT_LIMIT" if len(parents) > 32 else "GIT_MALFORMED_OUTPUT")
             commits.append({"hash": fields[0], "shortHash": fields[1], "subject": fields[2], "author": fields[3],
-                            "date": fields[4], "merge": len(fields[5].split()) > 1,
-                            "parents": fields[5].split(), "refs": [item.strip() for item in fields[6].split(",") if item.strip()]})
-        if len(commits) > 500:
-            raise GitAdapterError("GIT_OUTPUT_LIMIT")
-        return commits
+                            "date": fields[4], "merge": len(parents) > 1,
+                            "parents": parents, "refs": [item.strip() for item in fields[6].split(",") if item.strip()]})
+        return commits[:500]
 
     def commit_detail(self, commit: str) -> dict[str, object]:
         if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-fA-F]{7,64}", commit):
@@ -245,8 +253,14 @@ class GitAdapter:
         raw = self._run("show", ["show", "--no-renames", "--format=%H%x00%s%x00%an%x00%aI", "--numstat", "--no-ext-diff", commit])
         lines = raw.splitlines()
         header = lines[0].split("\0") if lines else []
-        if len(header) != 4 or not re.fullmatch(r"[0-9a-fA-F]{40}", header[0]) or not header[1] or not header[2] or not header[3]:
+        if len(header) != 4 or not re.fullmatch(r"[0-9a-fA-F]{40}", header[0]) or not re.fullmatch(r"[0-9a-fA-F]{7,40}", commit) or not header[0].lower().startswith(commit.lower()) or not header[1] or not header[2] or not header[3]:
             raise GitAdapterError("GIT_MALFORMED_OUTPUT")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?[+-]\d{2}:\d{2}", header[3]):
+            raise GitAdapterError("GIT_MALFORMED_OUTPUT")
+        try:
+            datetime.fromisoformat(header[3])
+        except ValueError as exc:
+            raise GitAdapterError("GIT_MALFORMED_OUTPUT") from exc
         files = []
         for line in lines[1:]:
             fields = line.split("\t")

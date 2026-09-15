@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from urllib.parse import urlparse
 import socket
@@ -25,7 +26,7 @@ class GitHubTransport:
         self.body_limit = min(max(body_limit, 1024), 1024 * 1024)
 
     def get(self, path: str, token: str) -> object:
-        if not path.startswith("/") or ".." in path or "\x00" in path:
+        if not path.startswith("/") or "\x00" in path or "\\" in path or re.search(r"%2e|%2f|%5c", path, re.IGNORECASE) or re.search(r"/(?:\.{1,2})(?:/|$)", path):
             raise GitHubTransportError("INVALID_GITHUB_PATH")
         request = Request(self.base_url + path, headers={"Accept": "application/vnd.github+json", "Authorization": f"Bearer {token}", "User-Agent": "mc-project-plugin"})
         deadline = time.monotonic() + self.timeout

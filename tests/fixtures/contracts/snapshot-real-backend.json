@@ -3,7 +3,10 @@
   "data": {
     "schemaVersion": 1,
     "project_id": "demo",
-    "project": { "name": "Demo", "repository": "https://github.com/example/repo.git" },
+    "project": {
+      "name": "Demo",
+      "repository": "https://github.com/example/repo.git"
+    },
     "processInstanceId": "process-instance",
     "registryEpoch": 1,
     "contextIdentity": "sha256",
@@ -13,22 +16,228 @@
     "observedAt": "2026-09-14T10:00:00+00:00",
     "refreshing": false,
     "lastUpdated": "2026-09-14T10:00:00+00:00",
-    "fingerprints": { "HEAD": "sha256", "status": "sha256", "refs/remotes": "sha256", "refs/heads": "sha256", "currentBranch": "sha256", "workingTree": "sha256", "branches": "sha256", "commits": "sha256", "local": "sha256" },
+    "fingerprints": {
+      "HEAD": "sha256",
+      "status": "sha256",
+      "refs/remotes": "sha256",
+      "refs/heads": "sha256",
+      "currentBranch": "sha256",
+      "workingTree": "sha256",
+      "branches": "sha256",
+      "commits": "sha256",
+      "local": "sha256"
+    },
     "localStatus": "ready",
     "capabilities": {
-      "workingTree": { "status": "ready", "stale": false, "source": "local_git", "observedAt": "2026-09-14T10:00:00+00:00", "generation": 1, "value": { "files": [{ "path": "src/app.ts", "status": "M" }] } },
-      "github": { "status": "ready", "stale": false, "source": "github", "observedAt": "2026-09-14T10:00:00+00:00", "generation": 1, "value": { "status": "ready", "pullRequests": [{ "number": 1, "title": "Fix route", "url": "https://github.com/example/repo/pull/1", "head_repository": "example/repo", "base_repository": "example/repo", "created_at": "2026-09-14T10:00:00+00:00" }], "issues": [{ "number": 2, "title": "Track issue", "url": "https://github.com/example/repo/issues/2", "created_at": "2026-09-14T10:00:00+00:00" }] } },
-      "branches": { "status": "ready", "stale": false, "source": "local_git", "observedAt": "2026-09-14T10:00:00+00:00", "generation": 1, "value": { "local": [{ "name": "main", "current": true }], "remote": [{ "name": "origin/main", "remoteAlias": "origin", "repository": "https://github.com/example/repo.git" }], "remoteAlias": "origin", "repository": "https://github.com/example/repo.git" } },
-      "commits": { "status": "ready", "stale": false, "source": "local_git", "observedAt": "2026-09-14T10:00:00+00:00", "generation": 1, "value": [{ "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "shortHash": "aaaaaaa", "subject": "Initial", "author": "Test", "date": "2026-09-14T10:00:00+00:00", "merge": false, "parents": [], "refs": ["HEAD -> main"] }] }
+      "workingTree": {
+        "status": "ready",
+        "stale": false,
+        "source": "local_git",
+        "observedAt": "2026-09-14T10:00:00+00:00",
+        "generation": 1,
+        "value": {
+          "files": [
+            {
+              "path": "src/app.ts",
+              "status": "M"
+            }
+          ]
+        },
+        "staleSince": null
+      },
+      "branches": {
+        "status": "ready",
+        "stale": false,
+        "source": "local_git",
+        "observedAt": "2026-09-14T10:00:00+00:00",
+        "generation": 1,
+        "value": {
+          "local": [
+            {
+              "name": "main",
+              "current": true
+            }
+          ],
+          "remote": [
+            {
+              "name": "origin/main",
+              "remoteAlias": "origin",
+              "repository": "https://github.com/example/repo.git"
+            }
+          ],
+          "remoteAlias": "origin",
+          "repository": "https://github.com/example/repo.git"
+        },
+        "staleSince": null
+      },
+      "commits": {
+        "status": "ready",
+        "stale": false,
+        "source": "local_git",
+        "observedAt": "2026-09-14T10:00:00+00:00",
+        "generation": 1,
+        "value": [
+          {
+            "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "shortHash": "aaaaaaa",
+            "subject": "Initial",
+            "author": "Test",
+            "date": "2026-09-14T10:00:00+00:00",
+            "merge": false,
+            "parents": [],
+            "refs": [
+              "HEAD -> main"
+            ]
+          }
+        ],
+        "staleSince": null
+      },
+      "branchLogs": {
+        "status": "ready",
+        "stale": false,
+        "source": "local_git",
+        "observedAt": "2026-09-14T10:00:00+00:00",
+        "generation": 1,
+        "value": {
+          "main": [
+            {
+              "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "shortHash": "aaaaaaa",
+              "subject": "Initial",
+              "author": "Test",
+              "date": "2026-09-14T10:00:00+00:00",
+              "merge": false,
+              "parents": [],
+              "refs": [
+                "HEAD -> main"
+              ]
+            }
+          ]
+        },
+        "staleSince": null
+      },
+      "github": {
+        "status": "ready",
+        "stale": false,
+        "source": "github",
+        "observedAt": "2026-09-14T10:00:00+00:00",
+        "generation": 1,
+        "value": {
+          "status": "ready",
+          "pullRequests": [
+            {
+              "number": 1,
+              "title": "Fix route",
+              "url": "https://github.com/example/repo/pull/1",
+              "head_repository": "example/repo",
+              "base_repository": "example/repo",
+              "created_at": "2026-09-14T10:00:00+00:00",
+              "repository": "example/repo"
+            }
+          ],
+          "issues": [
+            {
+              "number": 2,
+              "title": "Track issue",
+              "url": "https://github.com/example/repo/issues/2",
+              "created_at": "2026-09-14T10:00:00+00:00",
+              "repository": "example/repo"
+            }
+          ]
+        },
+        "staleSince": null
+      }
     },
-    "workingTree": { "files": [{ "path": "src/app.ts", "status": "M" }] },
-    "fileDiffs": { "src/app.ts": "diff --git a/src/app.ts b/src/app.ts\n+change" },
-    "branchLogs": { "main": [{ "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "shortHash": "aaaaaaa", "subject": "Initial", "author": "Test", "date": "2026-09-14T10:00:00+00:00", "merge": false, "parents": [], "refs": ["HEAD -> main"] }] },
-    "branches": { "local": [{ "name": "main", "current": true }], "remote": [{ "name": "origin/main", "remoteAlias": "origin", "repository": "https://github.com/example/repo.git" }], "remoteAlias": "origin", "repository": "https://github.com/example/repo.git" },
-    "commits": [{ "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "shortHash": "aaaaaaa", "subject": "Initial", "author": "Test", "date": "2026-09-14T10:00:00+00:00", "merge": false, "parents": [], "refs": ["HEAD -> main"] }],
-    "focusDefaults": { "kind": "file", "value": "src/app.ts" },
-    "github": { "status": "ready", "pullRequests": [{ "number": 1, "title": "Fix route", "url": "https://github.com/example/repo/pull/1", "head_repository": "example/repo", "base_repository": "example/repo", "created_at": "2026-09-14T10:00:00+00:00" }], "issues": [{ "number": 2, "title": "Track issue", "url": "https://github.com/example/repo/issues/2", "created_at": "2026-09-14T10:00:00+00:00" }] },
+    "workingTree": {
+      "files": [
+        {
+          "path": "src/app.ts",
+          "status": "M"
+        }
+      ]
+    },
+    "fileDiffs": {
+      "src/app.ts": "diff --git a/src/app.ts b/src/app.ts\n+change"
+    },
+    "branchLogs": {
+      "main": [
+        {
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "shortHash": "aaaaaaa",
+          "subject": "Initial",
+          "author": "Test",
+          "date": "2026-09-14T10:00:00+00:00",
+          "merge": false,
+          "parents": [],
+          "refs": [
+            "HEAD -> main"
+          ]
+        }
+      ]
+    },
+    "branches": {
+      "local": [
+        {
+          "name": "main",
+          "current": true
+        }
+      ],
+      "remote": [
+        {
+          "name": "origin/main",
+          "remoteAlias": "origin",
+          "repository": "https://github.com/example/repo.git"
+        }
+      ],
+      "remoteAlias": "origin",
+      "repository": "https://github.com/example/repo.git"
+    },
+    "commits": [
+      {
+        "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "shortHash": "aaaaaaa",
+        "subject": "Initial",
+        "author": "Test",
+        "date": "2026-09-14T10:00:00+00:00",
+        "merge": false,
+        "parents": [],
+        "refs": [
+          "HEAD -> main"
+        ]
+      }
+    ],
+    "focusDefaults": {
+      "kind": "file",
+      "value": "src/app.ts"
+    },
+    "github": {
+      "status": "ready",
+      "pullRequests": [
+        {
+          "number": 1,
+          "title": "Fix route",
+          "url": "https://github.com/example/repo/pull/1",
+          "head_repository": "example/repo",
+          "base_repository": "example/repo",
+          "created_at": "2026-09-14T10:00:00+00:00",
+          "repository": "example/repo"
+        }
+      ],
+      "issues": [
+        {
+          "number": 2,
+          "title": "Track issue",
+          "url": "https://github.com/example/repo/issues/2",
+          "created_at": "2026-09-14T10:00:00+00:00",
+          "repository": "example/repo"
+        }
+      ]
+    },
     "warnings": []
   },
-  "meta": { "schemaVersion": 1, "requestId": "opaque-request-id", "observedAt": "2026-09-14T10:00:00+00:00" }
+  "meta": {
+    "schemaVersion": 1,
+    "requestId": "opaque-request-id",
+    "observedAt": "2026-09-14T10:00:00+00:00"
+  }
 }

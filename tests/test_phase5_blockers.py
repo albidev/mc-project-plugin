@@ -72,7 +72,7 @@ def test_mutation_read_rejects_malformed_or_missing_head(tmp_path, fingerprints)
 
     with pytest.raises(ServiceError) as exc:
         BranchMutationService._read(FakeGit(), context)
-    assert (exc.value.code, exc.value.status_code) == ("INDETERMINATE", 504)
+    assert (exc.value.code, exc.value.status_code) == ("INDETERMINATE", 409)
 
 
 def test_failed_mutation_performs_refresh_before_indeterminate(tmp_path):

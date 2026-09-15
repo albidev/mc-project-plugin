@@ -1,6 +1,6 @@
 import type { Focus, ProjectBranch, ProjectSummary, Snapshot } from './types';
 import { ApiError, validMutationResponse } from './api.ts';
-import { normalizeCatalog, type FileRow } from './models.ts';
+import { normalizeCatalog, type FileRow, focusFromSnapshot } from './models.ts';
 
 export function selectorOptions(projects: ProjectSummary[], activeId: string): ProjectSummary[] {
   return normalizeCatalog(projects, activeId);
@@ -39,7 +39,7 @@ export function routeLayoutContract(): { scrollOwner: 'route'; horizontalOverflo
 
 type RouteApi = {
   catalog: () => Promise<ProjectSummary[]>;
-  snapshot: (projectId: string) => Promise<Snapshot>;
+  snapshot: (projectId: string, recovery?: boolean) => Promise<Snapshot>;
   commit: (projectId: string, commitId: string, snapshot: Snapshot) => Promise<unknown>;
   pullRequest: (projectId: string, number: number, snapshot: Snapshot) => Promise<unknown>;
   switchBranch: (projectId: string, branchName: string) => Promise<unknown>;
@@ -58,59 +58,69 @@ export type RouteState = {
   selectorOpen: boolean;
   mutation: boolean;
   mutationMessage: string;
+  mutationBusy: boolean;
+  selectedCommitHash?: string;
 };
 
-const initialState: RouteState = { catalog: [], focus: null, detailLoading: false, loading: true, selectorOpen: false, mutation: false, mutationMessage: '' };
+const initialState: RouteState = { catalog: [], focus: null, detailLoading: false, loading: true, selectorOpen: false, mutation: false, mutationMessage: '', mutationBusy: false };
 const asError = (cause: unknown) => cause instanceof ApiError ? cause : new ApiError('NETWORK');
+const INDETERMINATE_MUTATION_CODES = new Set(['MUTATION_INDETERMINATE', 'INDETERMINATE', 'READBACK_MISMATCH']);
+const isDefinitiveMutationRejection = (error: ApiError): boolean => error.status !== undefined && error.status >= 400 && error.status < 500 && !INDETERMINATE_MUTATION_CODES.has(error.code);
 
 export function createRouteController(api: RouteApi) {
   let state: RouteState = { ...initialState };
   let mounted = true;
   let token = 0;
+  let snapshotToken = 0;
+  let mutationToken = 0;
   const listeners = new Set<() => void>();
   const publish = (next: RouteState) => { state = next; listeners.forEach((listener) => listener()); };
   const update = (patch: Partial<RouteState>) => publish({ ...state, ...patch });
   const currentToken = () => token;
-  const loadSnapshot = async (id: string, requestToken = currentToken()) => {
-    update({ loading: true, error: undefined });
+  const loadSnapshot = async (id: string, requestToken = snapshotToken, recovery = false) => {
+    update({ loading: true, detail: undefined, error: undefined, detailLoading: false });
     try {
-      const next = await api.snapshot(id);
-      if (!mounted || requestToken !== token || id !== state.activeId) return;
-      update({ snapshot: next, focus: state.focus ?? next.focusDefaults as Focus | null, loading: false });
+      const next = await api.snapshot(id, recovery);
+      if (!mounted || requestToken !== snapshotToken || id !== state.activeId) return;
+      update({ snapshot: next, focus: focusFromSnapshot(state.focus ? { ...next, focusDefaults: state.focus } : next), loading: false });
     } catch (cause) {
-      if (mounted && requestToken === token && id === state.activeId) update({ loading: false, error: asError(cause) });
+      if (mounted && requestToken === snapshotToken && id === state.activeId) update({ loading: false, error: asError(cause) });
     }
   };
   const mount = async () => {
     mounted = true;
-    const requestToken = ++token;
+    const requestToken = ++snapshotToken;
     try {
       const items = await api.catalog();
-      if (!mounted || requestToken !== token) return;
-      const first = items[0];
-      update({ catalog: items, activeId: first?.project_id, loading: Boolean(first) });
+      if (!mounted || requestToken !== snapshotToken) return;
+      const enabledItems = items.filter((item) => item.enabled);
+      const first = enabledItems[0];
+      update({ catalog: enabledItems, activeId: first?.project_id, loading: Boolean(first) });
       if (first) await loadSnapshot(first.project_id, requestToken);
       else update({ loading: false });
     } catch (cause) {
-      if (mounted && requestToken === token) update({ loading: false, error: asError(cause) });
+      if (mounted && requestToken === snapshotToken) update({ loading: false, error: asError(cause) });
     }
   };
   const selectProject = (id: string) => {
-    if (!state.catalog.some((project) => project.project_id === id)) return Promise.resolve();
-    const requestToken = ++token;
-    update({ activeId: id, snapshot: undefined, focus: null, detail: undefined, error: undefined, mutation: false, mutationMessage: '', selectorOpen: false });
+    if (!state.catalog.some((project) => project.project_id === id && project.enabled)) return Promise.resolve();
+    const requestToken = ++snapshotToken; ++token; ++mutationToken;
+    update({ activeId: id, snapshot: undefined, focus: null, detail: undefined, detailLoading: false, selectedCommitHash: undefined, error: undefined, mutation: false, mutationMessage: '', mutationBusy: false, selectorOpen: false });
     return loadSnapshot(id, requestToken);
   };
   const refresh = () => {
     if (!state.activeId) return Promise.resolve();
-    const requestToken = ++token;
-    return loadSnapshot(state.activeId, requestToken);
+    const requestToken = ++snapshotToken; ++token;
+    const recovery = state.mutationBusy && state.mutationMessage.startsWith('Mutation indeterminate');
+    const promise = loadSnapshot(state.activeId, requestToken, recovery);
+    return promise.then(() => {
+      if (state.mutationBusy && state.mutationMessage.startsWith('Mutation indeterminate') && !state.error && !state.loading) update({ mutation: false, mutationBusy: false });
+    });
   };
   const selectFocus = async (next: Focus) => {
-    const current = state.snapshot; const requestToken = token;
-    update({ focus: next, detail: undefined });
+    const current = state.snapshot; const requestToken = ++token;
+    update({ focus: next, detail: undefined, loading: false, detailLoading: next.kind === 'commit', selectedCommitHash: next.kind === 'commit' ? next.value : undefined, error: undefined });
     if (!current || next.kind !== 'commit') return;
-    update({ detailLoading: true });
     try {
       const detail = await api.commit(current.project_id, next.value, current);
       if (mounted && requestToken === token && state.activeId === current.project_id) update({ detail });
@@ -118,10 +128,25 @@ export function createRouteController(api: RouteApi) {
       if (mounted && requestToken === token && state.activeId === current.project_id) update({ error: asError(cause) });
     } finally { if (mounted && requestToken === token) update({ detailLoading: false }); }
   };
-  const selectPullRequest = async (number: number) => {
-    const current = state.snapshot; const requestToken = token;
+  const selectCommit = async (hash?: string) => {
+    const current = state.snapshot; const requestToken = ++token;
     if (!current) return;
-    update({ focus: null, detail: undefined, detailLoading: true });
+    if (hash === undefined) {
+      update({ selectedCommitHash: undefined, detail: undefined, detailLoading: false, error: undefined });
+      return;
+    }
+    update({ selectedCommitHash: hash, detail: undefined, detailLoading: true, error: undefined });
+    try {
+      const detail = await api.commit(current.project_id, hash, current);
+      if (mounted && requestToken === token && state.activeId === current.project_id) update({ detail });
+    } catch (cause) {
+      if (mounted && requestToken === token && state.activeId === current.project_id) update({ error: asError(cause) });
+    } finally { if (mounted && requestToken === token) update({ detailLoading: false }); }
+  };
+  const selectPullRequest = async (number: number) => {
+    const current = state.snapshot; const requestToken = ++token;
+    if (!current) return;
+    update({ focus: null, detail: undefined, loading: false, detailLoading: true, selectedCommitHash: undefined, error: undefined });
     try {
       const detail = await api.pullRequest(current.project_id, number, current);
       if (mounted && requestToken === token && state.activeId === current.project_id) update({ detail });
@@ -130,29 +155,60 @@ export function createRouteController(api: RouteApi) {
     } finally { if (mounted && requestToken === token) update({ detailLoading: false }); }
   };
   const mutate = async (kind: 'switch' | 'create', value: string) => {
-    const current = state.snapshot; const requestToken = token;
-    if (!current || !value.trim() || state.mutation) return;
-    update({ mutation: true, mutationMessage: '' });
+    const current = state.snapshot;
+    if (!current || !value.trim() || state.mutationBusy) return;
+    const requestToken = ++mutationToken;
+    const focusAtStart = state.focus;
+    ++token;
+    ++snapshotToken;
+    update({ mutation: true, mutationBusy: true, loading: false, detail: undefined, detailLoading: false, mutationMessage: '' });
+    let completed = false;
+    let reconciled = false;
+    let rejected = false;
     try {
       const acknowledgement = kind === 'switch' ? await api.switchBranch(current.project_id, value) : await api.createBranch(current.project_id, value);
-      if (!validMutationResponse(acknowledgement)) throw new ApiError('INVALID_MUTATION_RESPONSE', 'Mutation acknowledgement was not verified.');
+      if (!validMutationResponse(acknowledgement, current.project_id, value, kind === 'create')) throw new ApiError('INVALID_MUTATION_RESPONSE', 'Mutation acknowledgement was not verified.');
       const readBack = await api.snapshot(current.project_id);
-      if (!mounted || requestToken !== token || state.activeId !== current.project_id) return;
-      update({ snapshot: readBack, focus: readBack.focusDefaults as Focus | null, mutationMessage: 'Read-back confirmed.', error: undefined });
+      if (readBack.localGeneration === undefined || readBack.localGeneration < acknowledgement.generation || !readBack.branches.local.some((branch) => branch.name === value && branch.current === true)) throw new ApiError('READBACK_MISMATCH', 'Mutation read-back did not confirm the requested branch.');
+      ++snapshotToken;
+      if (!mounted || requestToken !== mutationToken || state.activeId !== current.project_id) return;
+      const patch: Partial<RouteState> = { snapshot: readBack, mutationMessage: 'Read-back confirmed.', error: undefined };
+      if (state.focus === focusAtStart) patch.focus = focusFromSnapshot(readBack);
+      update(patch);
+      completed = true;
     } catch (cause) {
-      if (mounted && requestToken === token) update({ mutationMessage: `Mutation indeterminate: ${asError(cause).message}`, error: asError(cause) });
+      const error = asError(cause);
+      if (mounted && requestToken === mutationToken) {
+        if (isDefinitiveMutationRejection(error)) {
+          update({ mutation: false, mutationBusy: false, mutationMessage: error.message, error, loading: false });
+          rejected = true;
+          return;
+        }
+        update({ mutationMessage: `Mutation indeterminate: ${error.message}`, error, loading: false });
+        try {
+          const refreshed = await api.snapshot(current.project_id, true);
+          ++snapshotToken;
+          if (mounted && requestToken === mutationToken && state.activeId === current.project_id) {
+            const recovery: Partial<RouteState> = { snapshot: refreshed, loading: false, mutationMessage: 'Mutation indeterminate; state reconciled.', error };
+            if (state.focus === focusAtStart) recovery.focus = focusFromSnapshot(refreshed);
+            update(recovery);
+            reconciled = true;
+          }
+        } catch { /* keep mutationBusy set; manual recovery is required */ }
+      }
     } finally {
-      if (mounted && requestToken === token) update({ mutation: false });
+      if (mounted && requestToken === mutationToken && (completed || reconciled || rejected)) update({ mutation: false, mutationBusy: false });
     }
   };
   return {
     getState: () => state,
     subscribe: (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener); },
     mount,
-    unmount: () => { mounted = false; ++token; listeners.clear(); },
+    unmount: () => { mounted = false; ++token; ++snapshotToken; ++mutationToken; listeners.clear(); },
     selectProject,
     refresh,
     selectFocus,
+    selectCommit,
     selectPullRequest,
     mutate,
     toggleSelector: () => update({ selectorOpen: !state.selectorOpen }),

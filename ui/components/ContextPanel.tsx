@@ -1,6 +1,8 @@
 import React from 'react';
-import { ArrowLeftRight, FilePenLine } from 'lucide-react';
-import type { Commit, Focus, Snapshot } from '../types';
+import { ArrowLeftRight, Clock3, FilePenLine, FileText, GitCommitHorizontal, UserRound } from 'lucide-react';
+import type { CommitDetail, Focus, Snapshot } from '../types';
+import { GitLogTerminal } from './GitLogTerminal';
+import { StatusStates } from './StatusStates';
 
 type DiffLineType = 'hunk' | 'added' | 'removed' | 'context';
 
@@ -25,60 +27,38 @@ function DiffViewer({ diff }: { diff: string }) {
   );
 }
 
-function BranchLog({ entries }: { entries: Commit[] }) {
+function CommitInspector({ detail, loading }: { detail?: unknown; loading?: boolean }) {
+  if (loading) return <aside data-testid="context-commit-inspector" className="min-w-0 border-t border-border bg-[#0b0c10] p-4 xl:border-l xl:border-t-0" role="status">Loading commit detail…</aside>;
+  if (!detail || typeof detail !== 'object') return <aside data-testid="context-commit-inspector" className="min-w-0 border-t border-border bg-[#0b0c10] p-4 xl:border-l xl:border-t-0"><div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 text-center text-text-muted"><GitCommitHorizontal size={22} className="text-accent" /><p className="text-xs">Select a commit to inspect its details.</p></div></aside>;
+  const commit = detail as CommitDetail;
   return (
-    <div data-testid="context-branch-log" className="space-y-2 text-slate-300">
-      {entries.slice(0, 200).map((entry) => {
-        const refs = Array.isArray(entry.refs) ? entry.refs.join(', ') : entry.refs;
-        const parents = entry.parents?.join(', ');
-        return (
-          <div key={entry.hash} data-testid="branch-log-entry" className="min-w-0 border-b border-[#292b35] pb-2 last:border-b-0">
-            <div className="whitespace-pre-wrap break-words">
-              <span className="mr-2 text-amber-300">●</span>
-              <span className="text-violet-300">{entry.shortHash ?? entry.hash}</span>
-              <span className="ml-2 text-slate-500">({entry.hash})</span>
-              {refs && <span className="ml-2 text-emerald-300">[{refs}]</span>}
-              {entry.merge !== undefined && <span className="ml-2 text-amber-300">[merge: {String(entry.merge)}]</span>}
-              <span className="ml-2">{entry.subject}</span>
-            </div>
-            {(entry.author || entry.date || entry.authoredAt) && (
-              <div className="ml-5 whitespace-pre-wrap break-words text-slate-500">
-                {entry.author && <span>Author: {entry.author}</span>}
-                {(entry.date || entry.authoredAt) && <span>{entry.author ? ' · ' : ''}Date: {entry.date ?? entry.authoredAt}</span>}
-              </div>
-            )}
-            {parents !== undefined && <div className="ml-5 whitespace-pre-wrap break-words text-slate-500">Parents: {parents || '(root)'}</div>}
-          </div>
-        );
-      })}
-    </div>
+    <aside data-testid="context-commit-inspector" className="min-w-0 overflow-hidden border-t border-border bg-[#0b0c10] xl:border-l xl:border-t-0">
+      <div className="flex items-center gap-2 border-b border-border px-4 py-3"><GitCommitHorizontal size={15} className="shrink-0 text-accent" /><span className="text-xs font-semibold text-text">Commit details</span><span className="ml-auto rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-amber-300">{commit.hash.slice(0, 7)}</span></div>
+      <div className="space-y-4 overflow-y-auto p-4">
+        <div data-testid="context-commit-detail"><h3 className="break-words text-sm font-semibold leading-snug text-text">{commit.subject}</h3><div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-text-muted"><span className="inline-flex items-center gap-2"><UserRound size={13} className="text-fuchsia-300" />{commit.author}</span><span className="inline-flex items-center gap-2"><Clock3 size={13} className="text-sky-300" />{commit.date}</span><span className="break-all font-mono text-[10px] text-text-subtle">{commit.hash}</span></div></div>
+        <section><div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted"><FileText size={13} />Changed files <span className="text-text-subtle">{commit.files.length}</span></div><div className="divide-y divide-border rounded border border-border">{commit.files.length === 0 ? <p className="p-3 text-xs text-text-muted">No file changes reported.</p> : commit.files.map((file) => <div key={file.path} className="flex items-center justify-between gap-3 px-3 py-2 text-[11px]"><span className="min-w-0 truncate font-mono text-text" title={file.path}>{file.path}</span><span className="shrink-0 font-mono text-[10px]"><span className="text-[#00e676]">+{file.additions}</span><span className="ml-2 text-[#ff5570]">-{file.deletions}</span></span></div>)}</div></section>
+        {commit.diff && <details className="overflow-hidden rounded border border-border" open><summary className="cursor-pointer px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">Diff preview</summary><DiffViewer diff={commit.diff} /></details>}
+      </div>
+    </aside>
   );
 }
 
-export function ContextPanel({ focus, snapshot, detail, loading }: { focus: Focus | null; snapshot: Snapshot; detail?: unknown; loading?: boolean }) {
+export function ContextPanel({ focus, snapshot, detail, loading, selectedCommitHash, onSelectCommit }: { focus: Focus | null; snapshot: Snapshot; detail?: unknown; loading?: boolean; selectedCommitHash?: string; onSelectCommit?: (hash?: string) => void }) {
   const isFile = focus?.kind === 'file';
   const isBranch = focus?.kind === 'branch';
   const title = isFile ? 'Diff del file selezionato' : isBranch ? `Branch log · ${focus.value}` : focus ? 'Commit detail' : 'Context';
   const contextual = isFile ? snapshot.fileDiffs[focus.value] : isBranch ? snapshot.branchLogs[focus.value] : detail;
+  const branchCapability = isBranch ? snapshot.capabilities.branchLogs : undefined;
+  const branchEntries = isBranch && Array.isArray(contextual) ? contextual : undefined;
+  const selectedBranchHash = (selectedCommitHash && branchEntries?.some((entry) => entry.hash === selectedCommitHash) ? selectedCommitHash : undefined) ?? branchEntries?.find((entry) => entry.hash === snapshot.head)?.hash ?? branchEntries?.[0]?.hash;
   const rightLabel = focus?.value ?? snapshot.project_id;
 
   return (
-    <section data-testid="context-section" className="flex min-h-[360px] min-w-0 flex-col overflow-hidden rounded-[var(--control-radius)] border border-border bg-surface-raised">
-      <div className="flex min-w-0 items-center gap-2 border-b border-border px-3 py-2 text-sm font-semibold">
-        <FilePenLine size={15} className="shrink-0 text-accent" />
-        <span className="truncate">{title}</span>
-        <span data-testid={isFile ? 'context-file-path' : undefined} className="ml-auto truncate font-mono text-[11px] text-text-muted">{rightLabel}</span>
-      </div>
-      {isFile && (
-        <div className="flex items-center gap-2 border-b border-[#292b35] bg-[#0b0c10] px-3 py-1.5 font-mono text-[10px] text-slate-300">
-          <span className="text-amber-300">Working tree</span>
-          <ArrowLeftRight size={13} className="text-slate-500" aria-hidden="true" />
-          <span className="rounded border border-[#3a3b46] px-1.5 py-0.5 text-slate-300">HEAD</span>
-          <span className="ml-auto text-slate-500">Unified diff</span>
-        </div>
-      )}
-      <div className="min-h-0 flex-1 overflow-hidden bg-[#08090c] p-4 font-mono text-[11px] leading-[1.02]">
-        {loading ? <div className="text-text-muted" role="status">Loading detail…</div> : contextual !== undefined ? isFile && typeof contextual === 'string' ? <DiffViewer diff={contextual} /> : isBranch && Array.isArray(contextual) ? <BranchLog entries={contextual} /> : <pre data-testid="context-detail" className="m-0 whitespace-pre-wrap break-words text-text-muted">{typeof contextual === 'string' ? contextual : JSON.stringify(contextual, null, 2)}</pre> : <div className="text-text-muted" role="status">No context data is available for this selection.</div>}
+    <section data-testid="context-section" className="flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-[var(--control-radius)] border border-border bg-surface-raised">
+      <div className="flex min-w-0 items-center gap-2 border-b border-border bg-surface-sunken px-4 py-3"><FilePenLine size={15} className="shrink-0 text-accent" /><span className="truncate text-sm font-semibold">{title}</span><span data-testid={isFile ? 'context-file-path' : undefined} className="ml-auto truncate font-mono text-[11px] text-text-muted" title={rightLabel}>{rightLabel}</span></div>
+      {isFile && <div className="flex items-center gap-2 border-b border-border bg-[#0b0c10] px-4 py-2 font-mono text-[10px] text-slate-300"><span className="text-amber-300">Working tree</span><ArrowLeftRight size={13} className="text-slate-500" aria-hidden="true" /><span className="rounded border border-[#3a3b46] px-1.5 py-0.5 text-slate-300">HEAD</span><span className="ml-auto text-slate-500">Unified diff</span></div>}
+      <div className="min-h-0 flex-1 bg-[#08090c]">
+        {loading && !isBranch ? <div className="p-4 font-mono text-xs text-text-muted" role="status">Loading detail…</div> : isBranch ? <div data-testid="context-branch-log" className="grid min-h-[520px] min-w-0 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(280px,34%)]">{branchCapability?.status === 'error' || branchCapability?.status === 'unavailable' ? <div className="p-4"><StatusStates state="error" label="branch log" /></div> : branchEntries === undefined || branchEntries.length === 0 ? <div className="p-4"><StatusStates state="empty" label="branch log" /></div> : <><div className="min-w-0 overflow-hidden"><>{branchCapability?.status === 'stale' && <div role="status" className="border-b border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-warning">Branch history is stale; showing last-known-good data.</div>}<GitLogTerminal branch={focus.value} commits={branchEntries} selectedHash={selectedBranchHash} onSelectCommit={onSelectCommit ?? (() => undefined)} /></></div><CommitInspector detail={detail} loading={loading} /></>}</div> : contextual !== undefined ? isFile && typeof contextual === 'string' ? <DiffViewer diff={contextual} /> : <pre data-testid={focus?.kind === 'commit' ? 'context-commit-detail' : 'context-detail'} className="m-0 max-h-full overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-xs leading-relaxed text-text-muted">{typeof contextual === 'string' ? contextual : JSON.stringify(contextual, null, 2)}</pre> : <div className="p-4 font-mono text-xs text-text-muted" role="status">No context data is available for this selection.</div>}
       </div>
     </section>
   );
