@@ -165,7 +165,11 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
     assert.match(text(host), /Initial/);
 
     await click(host, '[data-commit-hash]');
+    assert.match(text(host), /Commit details/);
     assert.match(text(host), /commit detail from backend/);
+    assert.equal(host.querySelector('[data-testid="context-detail"]'), null);
+    assert.equal(host.querySelector('pre[data-testid="context-detail"]'), null);
+    assert.equal(host.querySelector('button[aria-label="Back to branch log"]'), null);
 
     await click(host, '[data-testid="pr-detail-1"]');
     await act(async () => { await sleep(100); });
@@ -229,9 +233,8 @@ test('renders the selected branch as a terminal graph and routes commit selectio
     await act(async () => { (host.querySelectorAll<HTMLElement>('[data-testid="git-log-commit-row"]')[1])?.click(); await sleep(100); });
     assert.ok(host.querySelector('[data-testid="context-commit-detail"]'));
     assert.match(text(host), /commit detail from backend/);
-    await act(async () => { (host.querySelectorAll<HTMLElement>('[data-testid="git-log-commit-row"]')[1])?.click(); await sleep(100); });
-    assert.equal(host.querySelector('[data-testid="context-commit-detail"]'), null);
-    assert.match(text(host), /Select a commit to inspect its details/);
+    assert.equal(host.querySelector('[data-testid="context-branch-log"]'), null);
+    assert.ok(host.querySelector('button[aria-label="Back to branch log"]'));
   } finally { await act(async () => root.unmount()); }
 });
 
