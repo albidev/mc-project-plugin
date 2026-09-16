@@ -1,0 +1,40 @@
+/* Plugin-local Tailwind 4 entry.
+ *
+ * The host's Tailwind 4 compile scans only explicit @source entries in its own
+ * src/styles.css; gitignored symlinked plugin sources (~/.hermes/mc-plugins) are
+ * skipped (the host added @source only for its in-repo `curate` plugin). Without
+ * this entry, plugin utility classes (bg-[#08090c], min-h-[520px], text-text,
+ * bg-surface-raised, ...) are never generated and the plugin renders unstyled.
+ *
+ * Imported by ui/route.ts, so it flows through the host's own
+ * @tailwindcss/postcss pipeline. Only theme + utilities are imported: the host
+ * already ships Tailwind's preflight, and a second one would duplicate global
+ * resets. Tokens are mirrored via @theme inline so plugin classes resolve to the
+ * same CSS variables the host theme exposes (--color-text, --color-accent, ...).
+ */
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+
+@source "./components";
+@source "./MCProjectsRoute.tsx";
+
+@theme inline {
+  --color-surface: var(--color-surface);
+  --color-surface-base: var(--color-surface-base);
+  --color-surface-raised: var(--color-surface-raised);
+  --color-surface-sunken: var(--color-surface-sunken);
+  --color-border: var(--color-border);
+  --color-border-subtle: var(--color-border-subtle);
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-subtle: var(--color-text-subtle);
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-subtle: var(--color-accent-subtle);
+  --color-positive: var(--color-positive);
+  --color-positive-subtle: var(--color-positive-subtle);
+  --color-warning: var(--color-warning);
+  --color-warning-subtle: var(--color-warning-subtle);
+  --color-negative: var(--color-negative);
+  --color-negative-subtle: var(--color-negative-subtle);
+}
