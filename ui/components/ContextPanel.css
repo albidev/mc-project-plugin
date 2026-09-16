@@ -34,8 +34,11 @@
 
 /*
  * These dense bodies are keyboard-focusable so that PageDown/arrow scrolling works after a click.
- * `focus:outline-none` on the utility class removes the default ring, so restore an explicit
- * focus-visible indicator for keyboard users (WCAG 2.4.7).
+ * An explicit focus-visible ring is required for keyboard users (WCAG 2.4.7). Do NOT re-add the
+ * host's `focus:outline-none` utility to these elements: the host ships
+ * `.focus\:outline-none:focus { outline: 2px solid transparent }` as an unlayered rule with the same
+ * specificity that appears later in the document, so it wins the cascade and silently blanks any
+ * ring declared here.
  */
 [data-testid='context-diff']:focus-visible,
 [data-testid='git-log-scroll']:focus-visible,

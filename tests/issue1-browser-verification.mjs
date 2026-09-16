@@ -133,6 +133,28 @@ const measureContextColumn = (page) => measureSelector(page, CONTEXT_COLUMN_SELE
 
 const countOf = (page, id) => page.evaluate((selector) => document.querySelectorAll(selector).length, `[data-testid="${id}"]`);
 
+// Keyboard-focusable scroll surfaces must show a visible focus ring. Asserting the computed style
+// (not the presence of a CSS rule) is what catches the host's unlayered
+// `.focus\:outline-none:focus { outline: 2px solid transparent }`, which silently wins the cascade
+// against an equally specific plugin rule and blanks the ring.
+async function assertFocusRing(page, testId) {
+  const ring = await page.evaluate((selector) => {
+    const element = document.querySelector(selector);
+    if (!element) return null;
+    element.focus({ focusVisible: true });
+    const style = getComputedStyle(element);
+    return {
+      isFocusVisible: element.matches(':focus-visible'),
+      outlineColor: style.outlineColor,
+      outlineWidth: style.outlineWidth,
+      outlineStyle: style.outlineStyle,
+    };
+  }, `[data-testid="${testId}"]`);
+  const visible = Boolean(ring) && ring.isFocusVisible && ring.outlineStyle !== 'none' && parseFloat(ring.outlineWidth) > 0
+    && !/^rgba?\(\s*0\s*,\s*0\s*,\s*0\s*(,\s*0\s*)?\)$/.test(ring.outlineColor);
+  check(`${testId} shows a focus-visible ring`, visible, ring ? `${ring.outlineColor} ${ring.outlineStyle} ${ring.outlineWidth}` : 'element missing');
+}
+
 async function expectCounts(page, state, expected) {
   for (const [id, expectedCount] of Object.entries(expected)) {
     const actual = await countOf(page, id);
@@ -191,7 +213,7 @@ async function assertScrollable(page, state, testId, { horizontal }) {
     await resetAndMeasure(page, testId);
     await page.mouse.move(centreX, centreY);
     await page.mouse.wheel(SCROLL_STEP, 0);
-    await page.waitForTimeout(150);
+    await waitForHorizontalScroll(page, testId);
     const side = await measure(page, testId);
     if (needsHorizontal) check(`${state}/${testId} horizontal wheel/scrollLeft reachable`, side.scrollLeft > 0 || side.clientWidth >= side.scrollWidth, `scrollLeft ${side.scrollLeft} ${side.clientWidth}/${side.scrollWidth}`);
     else check(`${state}/${testId} horizontal wheel no-op`, side.scrollLeft === 0, `scrollLeft ${side.scrollLeft}`);
@@ -217,6 +239,18 @@ async function waitForScroll(page, testId) {
     if (value > 0) return value;
   }
   return 0;
+}
+
+// Horizontal wheel scrolling settles asynchronously (and can be smooth-animated), so a fixed
+// sleep makes the assertion timing-dependent: the same build passed and failed across two
+// consecutive runs with waitForTimeout(150). Poll the value instead, bounded.
+async function waitForHorizontalScroll(page, testId) {
+  for (let attempt = 0; attempt < SMOOTH_RETRIES; attempt += 1) {
+    await page.waitForTimeout(80);
+    const value = await page.evaluate((id) => document.querySelector(`[data-testid="${id}"]`)?.scrollLeft ?? 0, testId);
+    if (value > 0) return value;
+  }
+  return page.evaluate((id) => document.querySelector(`[data-testid="${id}"]`)?.scrollLeft ?? 0, testId);
 }
 
 async function dragScrollbar(page, testId) {
@@ -335,6 +369,7 @@ async function main() {
   await captureColumns('diff');
   assertColumnOwnership('diff');
   check('diff breadcrumb is not clipped by its box', (geometry.diff.breadcrumb?.scrollHeight ?? 0) <= BREADCRUMB_HEIGHT, `scrollHeight ${geometry.diff.breadcrumb?.scrollHeight}`);
+  await assertFocusRing(page, 'context-diff');
   check('diff breadcrumb height 32', geometry.diff.breadcrumb?.rect.height === BREADCRUMB_HEIGHT, `height ${geometry.diff.breadcrumb?.rect.height}`);
   check('diff breadcrumb is context-section child', geometry.diff.breadcrumb?.parentTestId === 'context-section');
   check('diff body overflow hidden', geometry.diff.body?.overflowX === 'hidden' && geometry.diff.body?.overflowY === 'hidden');
@@ -359,6 +394,7 @@ async function main() {
   assertColumnOwnership('log');
   check('log normative cardinalities', (await countOf(page, 'git-log-selected-row')) === 1 && (await countOf(page, 'git-log-ref')) === LONG_REFS.length);
   check('log breadcrumb height 32', geometry.log.breadcrumb?.rect.height === BREADCRUMB_HEIGHT, `height ${geometry.log.breadcrumb?.rect.height}`);
+  await assertFocusRing(page, 'git-log-scroll');
   check('log shell same width as diff', Math.abs((geometry.log.shell?.rect.width ?? 0) - (geometry.diff.shell?.rect.width ?? 0)) <= GEOMETRY_TOLERANCE);
   if (width > 480) {
     // Desktop: the bounded context panel keeps one identical box across all three states.
@@ -427,6 +463,7 @@ async function main() {
   assertColumnOwnership('commit');
   check('commit normative cardinalities', (await countOf(page, 'git-log-ref')) === 0 && (await countOf(page, 'git-log-selected-row')) === 0 && (await countOf(page, 'context-diff')) === 0);
   check('commit breadcrumb height 32', geometry.commit.breadcrumb?.rect.height === BREADCRUMB_HEIGHT, `height ${geometry.commit.breadcrumb?.rect.height}`);
+  await assertFocusRing(page, 'context-commit-scroll');
   check('commit breadcrumb is not clipped by its box', (geometry.commit.breadcrumb?.scrollHeight ?? 0) <= BREADCRUMB_HEIGHT, `scrollHeight ${geometry.commit.breadcrumb?.scrollHeight}`);
   check('commit shell same width as diff', Math.abs((geometry.commit.shell?.rect.width ?? 0) - (geometry.diff.shell?.rect.width ?? 0)) <= GEOMETRY_TOLERANCE);
   if (width > 480) {

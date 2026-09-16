@@ -121,7 +121,7 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
 
   return (
     <section data-testid="git-log-terminal" aria-label={`Git log ${branch}`} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#08090c] text-[11px] text-slate-300 md:h-full">
-      <div data-testid="git-log-scroll" tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-auto bg-[#08090c] focus:outline-none">
+      <div data-testid="git-log-scroll" tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-auto bg-[#08090c]">
         {entries.length === 0 ? (
           <div role="status" className="px-3 py-4 text-text-muted">No commits available for this branch.</div>
         ) : (
