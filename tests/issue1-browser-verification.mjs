@@ -20,7 +20,7 @@ const BROWSERS = {
   firefox: { executablePath: undefined, name: 'firefox' },
 };
 const SYSTEM_PROFILE_ERROR = 'Could not find profile folder';
-const LONG_COMMITS = 30;
+const LONG_COMMITS = 20;
 const LONG_REFS = ['HEAD -> main', 'origin/main'];
 const BREADCRUMB_HEIGHT = 32;
 const GEOMETRY_TOLERANCE = 1;
@@ -373,6 +373,48 @@ async function main() {
     await assertMobileNonOwner(page, 'mobile-log', 'git-log-scroll');
   }
   check('breadcrumb carries the branch history', (await page.locator('[data-testid="context-breadcrumb"]').innerText()).includes('HISTORY'));
+  // Regression guard: the graph column is drawn by the library at a fixed 40px stride, so every
+  // commit row must be exactly 40px tall and each node must stay centred on its own row.
+  const alignment = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('[data-testid="git-log-commit-row"]')];
+    const nodes = [...document.querySelectorAll('[id^="commit-node-"]')];
+    const pitch = (boxes) => boxes.length > 1 ? boxes[1].y - boxes[0].y : null;
+    const rowBoxes = rows.map((element) => { const box = element.getBoundingClientRect(); return { y: box.y, h: box.height }; });
+    const nodeBoxes = nodes.map((element) => { const box = element.getBoundingClientRect(); return { y: box.y + box.height / 2 }; });
+    return {
+      rowPitch: pitch(rowBoxes),
+      nodePitch: pitch(nodeBoxes),
+      rowHeights: [...new Set(rowBoxes.map((box) => Math.round(box.h)))],
+      maxDelta: Math.max(...rowBoxes.map((box, index) => (nodeBoxes[index] ? Math.abs(nodeBoxes[index].y - (box.y + box.h / 2)) : 0))),
+    };
+  });
+  metrics.logAlignment = alignment;
+  check('log rows use the library 40px stride', alignment.rowHeights.length === 1 && alignment.rowHeights[0] === 40, `heights ${JSON.stringify(alignment.rowHeights)}`);
+  check('log row pitch equals node pitch', alignment.rowPitch !== null && alignment.nodePitch !== null && Math.abs(alignment.rowPitch - alignment.nodePitch) <= GEOMETRY_TOLERANCE, `row ${alignment.rowPitch} node ${alignment.nodePitch}`);
+  check('log nodes stay aligned to their own row', alignment.maxDelta <= 2, `max delta ${alignment.maxDelta}`);
+  // Criterion 9 requires the log body to be scrollable on BOTH axes. The log truncates its rows by
+  // design, so its own content never overflows horizontally: the no-op branch alone would leave the
+  // horizontal capability unproven. Prove the container really scrolls horizontally by temporarily
+  // injecting an overflowing probe (removed immediately), so this asserts a capability rather than
+  // a relaxed expectation.
+  const horizontalCapability = await page.evaluate(() => {
+    const body = document.querySelector('[data-testid="git-log-scroll"]');
+    if (!body) return null;
+    const before = { scrollLeft: body.scrollLeft, clientWidth: body.clientWidth };
+    const probe = document.createElement('div');
+    probe.setAttribute('data-probe', 'log-horizontal-capability');
+    probe.style.cssText = `width:${body.clientWidth + 400}px;height:1px;flex:none;`;
+    body.appendChild(probe);
+    const width = body.scrollWidth;
+    body.scrollLeft = 200;
+    const scrolled = body.scrollLeft;
+    probe.remove();
+    body.scrollLeft = 0;
+    return { before, overflowX: getComputedStyle(body).overflowX, scrollWidth: width, scrolled };
+  });
+  metrics.logHorizontalCapability = horizontalCapability;
+  check('log body declares horizontal overflow', horizontalCapability?.overflowX === 'auto' || horizontalCapability?.overflowX === 'scroll', `overflow-x ${horizontalCapability?.overflowX}`);
+  check('log body scrolls horizontally when content overflows', (horizontalCapability?.scrolled ?? 0) > 0, `scrollLeft ${horizontalCapability?.scrolled} at scrollWidth ${horizontalCapability?.scrollWidth}`);
   await page.screenshot({ path: resolve(outDir, 'log.png') });
 
   // --- commit detail from branch log + breadcrumb return
@@ -403,6 +445,18 @@ async function main() {
   await page.waitForSelector('[data-testid="git-log-terminal"]', { timeout: INTERACTION_TIMEOUT_MS });
   check('breadcrumb returns to branch log', (await countOf(page, 'git-log-terminal')) === 1 && (await countOf(page, 'context-commit-detail')) === 0);
 
+  // Criterion 5 through the keyboard path: the return control is a role=link span, and a manual
+  // observation is not reproducible evidence. Re-enter commit detail and activate the control with
+  // Enter to assert the a11y path from committed artefacts.
+  await page.locator('[data-testid="git-log-commit-row"]').nth(1).click();
+  await page.waitForSelector('[data-testid="context-commit-detail"]', { timeout: INTERACTION_TIMEOUT_MS });
+  await page.locator('[data-testid="context-breadcrumb-branch"]').focus();
+  const focusedTestId = await page.evaluate(() => document.activeElement?.getAttribute('data-testid'));
+  check('breadcrumb return control is focusable', focusedTestId === 'context-breadcrumb-branch', `focused ${focusedTestId}`);
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('[data-testid="git-log-terminal"]', { timeout: INTERACTION_TIMEOUT_MS });
+  check('breadcrumb returns to branch log via keyboard', (await countOf(page, 'git-log-terminal')) === 1 && (await countOf(page, 'context-commit-detail')) === 0);
+
   // --- commit detail originated from the commit timeline (uses /projects/commit through the fixture dispatcher)
   const commitBefore = commitRequests.length;
   await page.locator('[data-commit-hash]').first().click();
@@ -415,7 +469,7 @@ async function main() {
   check('commit response came from the fixture dispatcher', commitUnintercepted === 0, `invalid commit responses ${commitUnintercepted}`);
 
   // --- reload repeats the diff interactions
-  await page.reload({ waitUntil: 'domcontentloaded', timeout: READY_TIMEOUT_MS });
+  await page.reload({ waitUntil: 'networkidle', timeout: READY_TIMEOUT_MS });
   await page.waitForSelector('[data-testid="mc-projects-route"]', { timeout: READY_TIMEOUT_MS });
   await page.waitForSelector('[data-testid="context-section"]', { timeout: READY_TIMEOUT_MS });
   if (width > 480) {

@@ -31,3 +31,15 @@
   scrollbar-width: thin;
   scrollbar-color: #5b5f70 #0b0c10;
 }
+
+/*
+ * These dense bodies are keyboard-focusable so that PageDown/arrow scrolling works after a click.
+ * `focus:outline-none` on the utility class removes the default ring, so restore an explicit
+ * focus-visible indicator for keyboard users (WCAG 2.4.7).
+ */
+[data-testid='context-diff']:focus-visible,
+[data-testid='git-log-scroll']:focus-visible,
+[data-testid='context-commit-scroll']:focus-visible {
+  outline: 1px solid #7c3aed;
+  outline-offset: -1px;
+}

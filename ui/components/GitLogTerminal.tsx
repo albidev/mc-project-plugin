@@ -27,7 +27,11 @@ type LibraryNodeProps = {
   isIndexPseudoNode: boolean;
 };
 
-const LIBRARY_ROW_HEIGHT = 32;
+// The graph column is rendered by @tomplum/react-git-log with a hard-coded row stride
+// (internally `re = 40`): node y = re/2 + rowSpacing + row * re, and the graph grid uses
+// `repeat(rows, 40px)`. The table row height must match that stride exactly, otherwise each
+// node drifts from its own commit row by (40 - rowHeight) per row.
+const LIBRARY_ROW_HEIGHT = 40;
 
 function refClass(ref: string): string {
   if (ref.startsWith('HEAD')) return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300';
@@ -77,7 +81,7 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
         data-testid="git-log-commit-row"
         data-commit-hash={meta.hash}
         aria-selected={isSelected}
-        className={`flex h-8 w-full min-w-0 items-center text-left font-mono text-[11px] ${isSelected ? 'text-white' : 'text-slate-300'}`}
+        className={`flex h-10 w-full min-w-0 items-center text-left font-mono text-[11px] ${isSelected ? 'text-white' : 'text-slate-300'}`}
         style={{
           height: LIBRARY_ROW_HEIGHT,
           minHeight: LIBRARY_ROW_HEIGHT,
