@@ -163,10 +163,18 @@ class BranchMutationService:
                 "head": head, "fingerprints": fingerprints}
 
     @staticmethod
+    def _branch_head(refs_heads_raw: str, name: str) -> str | None:
+        """Object id pointed by the requested branch in the refs/heads fingerprint."""
+        for row in refs_heads_raw.splitlines():
+            fields = row.split("\t")
+            if len(fields) == 5 and fields[0] == name:
+                return fields[1]
+        return None
+
+    @staticmethod
     def _fingerprints_match(before: dict[str, str], after: dict[str, str], name: str,
-                            create: bool) -> bool:
-        if (after["HEAD"] != before["HEAD"] or after["status"] != before["status"]
-                or after["refs/remotes"] != before["refs/remotes"]
+                            create: bool, expected_head: str) -> bool:
+        if (after["refs/remotes"] != before["refs/remotes"]
                 or after["currentBranch"] != name):
             return False
 
@@ -184,7 +192,7 @@ class BranchMutationService:
         if not before_rows or not after_rows and before_rows:
             return False
         if create:
-            expected = (name, before["HEAD"], " ", "", "")
+            expected = (name, expected_head, " ", "", "")
             if after_rows.count(expected) != 1:
                 return False
             after_rows.remove(expected)
@@ -219,12 +227,20 @@ class BranchMutationService:
             before = self._read(git, context)
             local = before["branches"]["local"]
             names = {item.get("name") for item in local if isinstance(item, dict)}
-            if before["status"] != "clean":
-                raise ServiceError("WORKTREE_DIRTY", 409)
             if create and name in names:
                 raise ServiceError("BRANCH_ALREADY_EXISTS", 409)
             if not create and name not in names:
                 raise ServiceError("BRANCH_NOT_FOUND", 404)
+            # The expected destination: the object id the requested branch points
+            # at (the branch itself for a switch; the current HEAD for a create).
+            fingerprints = before["fingerprints"]
+            if not isinstance(fingerprints, dict):
+                raise ServiceError("INDETERMINATE", 409)
+            refs_heads = fingerprints.get("refs/heads")
+            expected_head = (before["head"] if create
+                             else (self._branch_head(refs_heads, name) if isinstance(refs_heads, str) else None))
+            if not isinstance(expected_head, str) or not _OBJECT_ID.fullmatch(expected_head):
+                raise ServiceError("INDETERMINATE", 409)
             expected_tracking = None if create else self._tracking_for(before["branches"], name)
             # Resolve the complete context again after acquiring the shared
             # gate.  The preflight context can be stale if the registry,
@@ -240,13 +256,12 @@ class BranchMutationService:
             # change. Re-read immediately before dispatch and refuse to run
             # Git unless the complete preflight observation is unchanged.
             dispatch_read = self._read(self.service.git_factory(validated), validated)
-            if dispatch_read["status"] != "clean":
-                raise ServiceError("WORKTREE_DIRTY", 409)
             if dispatch_read != before:
                 raise ServiceError("READBACK_MISMATCH", 409)
             self.service.begin_mutation(context)
             registry_identity = self.service._registry_identity(self.service.registry)
             completed = False
+            definitive = False
             try:
                 generation = self.service._next_generation(context.project_id)
                 with self.service._lock:
@@ -259,11 +274,11 @@ class BranchMutationService:
                 if validated != context:
                     raise ServiceError("CONTEXT_MISMATCH", 409)
                 after = self._read(self.service.git_factory(validated), validated)
-                if (after["branch"] != name or after["status"] != "clean"
-                        or after["head"] != before["head"]
+                if (after["branch"] != name
+                        or after["head"] != expected_head
                         or after.get("tracking") != expected_tracking
                         or not isinstance(after.get("tracking"), (str, type(None)))
-                        or not self._fingerprints_match(before["fingerprints"], after["fingerprints"], name, create)):
+                        or not self._fingerprints_match(before["fingerprints"], after["fingerprints"], name, create, expected_head)):
                     raise ServiceError("READBACK_MISMATCH", 409)
                 if not self.service.finish_mutation_verified(context.project_id, registry_identity):
                     raise ServiceError("INDETERMINATE", 409)
@@ -272,6 +287,10 @@ class BranchMutationService:
                         "status": after["status"], "created": create, "generation": generation, "verified": True}
             except ServiceError as exc:
                 self._recover_indeterminate(context)
+                if exc.code == "GIT_COMMAND_FAILED":
+                    definitive = True
+                    self.service.finish_mutation(context.project_id, indeterminate=False)
+                    raise
                 if exc.code == "READBACK_MISMATCH":
                     raise
                 raise ServiceError("INDETERMINATE", 409) from exc
@@ -279,7 +298,7 @@ class BranchMutationService:
                 self._recover_indeterminate(context)
                 raise ServiceError("INDETERMINATE", 409) from exc
             finally:
-                if not completed:
+                if not completed and not definitive:
                     self.service.finish_mutation(context.project_id, indeterminate=True)
 
     def switch(self, context: RepositoryContext, branch: str) -> dict[str, object]:

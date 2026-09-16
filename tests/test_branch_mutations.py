@@ -59,12 +59,66 @@ def test_create_branch_creates_and_checks_out_fixture(tmp_path):
     assert result["created"] is True
 
 
-def test_dirty_fixture_blocks_without_stash_or_mutation(tmp_path):
+def test_switch_to_branch_with_different_commit_verifies(tmp_path):
+    repo, context, _service, mutations = setup_service(tmp_path)
+    import subprocess
+    # feature/demo e' creata sul commit iniziale; main avanza su un commit diverso.
+    subprocess.run(["git", "-C", str(repo), "branch", "feature/demo"], check=True, capture_output=True)
+    (repo / "second.txt").write_text("second\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "second.txt"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "second commit"], check=True, capture_output=True)
+    result = mutations.switch(context, "feature/demo")
+    assert result["branch"] == "feature/demo"
+    assert result["status"] == "clean"
+    assert result["created"] is False
+    assert result["verified"] is True
+    # HEAD ora coincide con la destinazione richiesta, non piu' con il vecchio HEAD.
+    target = subprocess.run(["git", "-C", str(repo), "rev-parse", "feature/demo"], check=True, capture_output=True, text=True).stdout.strip()
+    head = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], check=True, capture_output=True, text=True).stdout.strip()
+    assert head == target
+    assert not (repo / "second.txt").exists()
+
+
+def test_switch_with_conflicting_changes_is_definitive_4xx(tmp_path):
+    repo, context, service, mutations = setup_service(tmp_path)
+    import subprocess
+    # feature/demo modifica README; su main una modifica locale confligge.
+    subprocess.run(["git", "-C", str(repo), "branch", "feature/demo"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(repo), "checkout", "-q", "feature/demo"], check=True, capture_output=True)
+    (repo / "README.md").write_text("fixture demo\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "README.md"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "demo change"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(repo), "checkout", "-q", "main"], check=True, capture_output=True)
+    (repo / "README.md").write_text("fixture local\n", encoding="utf-8")
+    with pytest.raises(ServiceError) as exc:
+        mutations.switch(context, "feature/demo")
+    assert (exc.value.code, exc.value.status_code) == ("GIT_COMMAND_FAILED", 409)
+    # Rifiuto definitivo: la mutazione non resta indeterminata e il repo e' intatto.
+    assert service._mutation_state.get("demo") == "idle"
+    head = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], check=True, capture_output=True, text=True).stdout.strip()
+    assert head == subprocess.run(["git", "-C", str(repo), "rev-parse", "main"], check=True, capture_output=True, text=True).stdout.strip()
+    assert (repo / "README.md").read_text() == "fixture local\n"
+
+
+def test_switch_carries_uncommitted_untracked_when_git_accepts(tmp_path):
+    repo, context, _service, mutations = setup_service(tmp_path)
+    import subprocess
+    subprocess.run(["git", "-C", str(repo), "branch", "feature/demo"], check=True, capture_output=True)
+    (repo / "notes.txt").write_text("work in progress\n", encoding="utf-8")
+    result = mutations.switch(context, "feature/demo")
+    assert result["branch"] == "feature/demo"
+    assert result["status"] == "dirty"
+    assert result["verified"] is True
+    assert (repo / "notes.txt").read_text() == "work in progress\n"
+
+
+def test_dirty_fixture_with_missing_branch_is_not_found(tmp_path):
     repo, context, _service, mutations = setup_service(tmp_path)
     (repo / "README.md").write_text("dirty\n", encoding="utf-8")
     with pytest.raises(ServiceError) as exc:
-        mutations.switch(context, "feature/demo")
-    assert (exc.value.code, exc.value.status_code) == ("WORKTREE_DIRTY", 409)
+        mutations.switch(context, "does-not-exist")
+    # Il preflight WORKTREE_DIRTY non maschera piu' errori applicativi determinati.
+    assert (exc.value.code, exc.value.status_code) == ("BRANCH_NOT_FOUND", 404)
     assert "dirty" in (repo / "README.md").read_text()
 
 

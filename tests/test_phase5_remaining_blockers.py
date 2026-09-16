@@ -159,7 +159,7 @@ def test_pre_command_state_change_blocks_git_dispatch(tmp_path):
     mutations.runner_factory = MustNotRun
     with pytest.raises(ServiceError) as exc:
         mutations.create(context, "feature/precondition")
-    assert (exc.value.code, exc.value.status_code) == ("WORKTREE_DIRTY", 409)
+    assert (exc.value.code, exc.value.status_code) == ("READBACK_MISMATCH", 409)
     assert calls == [True]
     assert service._mutation_status("demo") == "idle"
 
