@@ -74,8 +74,8 @@ test('renders classified unified diff rows without losing whitespace', { concurr
   await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'file', value: 'src/app.ts' }, snapshot })); await sleep(); });
   try {
     assert.match(text(host), /DIFF/);
-    assert.equal(host.querySelector('[data-testid="git-log-breadcrumb"]')?.textContent?.includes('src/app.ts'), true);
-    assert.match(host.querySelector<HTMLElement>('[data-testid="git-log-breadcrumb"]')?.className ?? '', /(?:^|\s)h-8(?:\s|$)/);
+    assert.equal(host.querySelector('[data-testid="context-breadcrumb"]')?.textContent?.includes('src/app.ts'), true);
+    assert.match(host.querySelector<HTMLElement>('[data-testid="context-breadcrumb"]')?.className ?? '', /(?:^|\s)h-8(?:\s|$)/);
     assert.match(host.querySelector<HTMLElement>('[data-testid="context-diff"]')?.className ?? '', /(?:^|\s)flex-1(?:\s|$)/);
     assert.deepEqual([...host.querySelectorAll<HTMLElement>('[data-diff-line-type]')].map((line) => line.dataset.diffLineType), ['context', 'hunk', 'context', 'removed', 'added', 'context']);
     assert.equal(host.querySelector('[data-diff-line-type="removed"]')?.textContent, '-const oldValue = true;');
@@ -83,8 +83,8 @@ test('renders classified unified diff rows without losing whitespace', { concurr
     assert.equal(host.querySelector('[data-diff-line-type="context"]:last-child')?.textContent, '  indented();');
     const diff = host.querySelector<HTMLElement>('[data-testid="context-diff"]'); assert.ok(diff);
     const diffCode = diff.querySelector<HTMLElement>('pre'); assert.ok(diffCode);
-    assert.match(diff.className, /(?:^|\s)py-0\.5(?:\s|$)/);
-    assert.match(diffCode.className, /(?:^|\s)leading-\[1\.02\](?:\s|$)/);
+    assert.match(diff.className, /(?:^|\s)overflow-y-scroll(?:\s|$)/);
+    assert.match(diffCode.className, /(?:^|\s)min-w-max(?:\s|$)/);
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -113,6 +113,58 @@ test('renders branch log refs, parents, and merge metadata without losing commit
   } finally { await act(async () => root.unmount()); }
 });
 
+test('exposes one stable context shell with state-specific exclusive view IDs', { concurrency: false }, async () => {
+  installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const snapshot = structuredClone(fixture.data);
+  snapshot.branchLogs.main = [
+    { hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', shortHash: 'bbbbbbb', subject: 'Merge feature/ui', author: 'Maintainer', date: '2026-09-14T11:00:00+00:00', merge: true, refs: ['HEAD -> main', 'origin/main'], parents: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'] },
+    { hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', shortHash: 'aaaaaaa', subject: 'main work', author: 'Maintainer', date: '2026-09-14T10:00:00+00:00', merge: false, refs: [], parents: [] },
+  ];
+  snapshot.capabilities.branchLogs.value = snapshot.branchLogs;
+  const root = createRoot(host);
+  const count = (id: string) => host.querySelectorAll(`[data-testid="${id}"]`).length;
+  const render = async (focus: unknown, detail?: unknown) => { await act(async () => { root.render(React.createElement(ContextPanel, { focus, snapshot, detail, loading: false, selectedCommitHash: undefined, onSelectCommit: () => undefined })); await sleep(); }); };
+  try {
+    await render({ kind: 'file', value: 'src/app.ts' });
+    assert.equal(count('context-section'), 1);
+    assert.equal(count('context-body'), 1);
+    assert.equal(count('context-breadcrumb'), 1);
+    assert.equal(count('context-breadcrumb-branch'), 0);
+    assert.equal(count('context-diff'), 1);
+    assert.equal(count('git-log-terminal'), 0);
+    assert.equal(count('context-commit-detail'), 0);
+    assert.equal(count('git-log-breadcrumb'), 0);
+    assert.match(host.querySelector<HTMLElement>('[data-testid="context-body"]')?.className ?? '', /overflow-hidden/);
+    assert.equal(host.querySelector<HTMLElement>('[data-testid="context-breadcrumb"]')?.parentElement?.getAttribute('data-testid'), 'context-section');
+
+    await render({ kind: 'branch', value: 'main' });
+    assert.equal(count('context-section'), 1);
+    assert.equal(count('context-breadcrumb'), 1);
+    assert.equal(count('context-breadcrumb-branch'), 0);
+    assert.equal(count('context-diff'), 0);
+    assert.equal(count('git-log-terminal'), 1);
+    assert.equal(count('git-log-commit-row'), 2);
+    assert.equal(count('git-log-ref'), 2);
+    assert.equal(count('context-commit-detail'), 0);
+    assert.equal(count('git-log-scroll'), 1);
+    assert.match(host.querySelector<HTMLElement>('[data-testid="context-breadcrumb"]')?.className ?? '', /h-8/);
+
+    await render({ kind: 'commit', value: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }, { hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', subject: 'main work', author: 'Maintainer', date: '2026-09-14T10:00:00+00:00', files: [], diff: '' });
+    assert.equal(count('context-section'), 1);
+    assert.equal(count('context-breadcrumb'), 1);
+    assert.equal(count('context-commit-detail'), 1);
+    assert.equal(count('context-commit-scroll'), 1);
+    assert.equal(count('git-log-terminal'), 0);
+    assert.equal(count('git-log-commit-row'), 0);
+    assert.equal(count('context-diff'), 0);
+    assert.equal(host.querySelector('button[aria-label="Back to branch log"]'), null);
+    // The branch return control must not be a <button>: the host styles button with an
+    // !important 44px touch target, which would overflow the fixed 32px breadcrumb shell.
+    const breadcrumbBranch = host.querySelector<HTMLElement>('[data-testid="context-breadcrumb-branch"]');
+    if (breadcrumbBranch) assert.equal(breadcrumbBranch.tagName, 'SPAN');
+  } finally { await act(async () => root.unmount()); }
+});
 
 test('isolates branch log capability errors from the last-known-good panel', { concurrency: false }, async () => {
   installDom();
@@ -249,11 +301,11 @@ test('renders the selected branch as a terminal graph and routes commit selectio
     assert.ok(host.querySelector('[data-testid="context-commit-detail"]'));
     assert.match(text(host), /commit detail from backend/);
     assert.equal(host.querySelector('[data-testid="context-branch-log"]'), null);
-    assert.equal(host.querySelector('[data-testid="git-log-breadcrumb-message"]')?.textContent, 'main work');
+    assert.equal(host.querySelector('[data-testid="context-breadcrumb-message"]')?.textContent, 'main work');
     assert.equal(host.querySelector('button[aria-label="Back to branch log"]'), null);
     assert.match(host.querySelector<HTMLElement>('[data-testid="context-commit-inspector"]')?.className ?? '', /(?:^|\s)flex(?:\s|$)/);
     assert.match(host.querySelector<HTMLElement>('[data-testid="context-commit-scroll"]')?.className ?? '', /overflow-y-auto/);
-    await click(host, '[data-testid="git-log-breadcrumb-branch"]');
+    await click(host, '[data-testid="context-breadcrumb-branch"]');
     assert.ok(host.querySelector('[data-testid="context-branch-log"]'));
   } finally { await act(async () => root.unmount()); }
 });

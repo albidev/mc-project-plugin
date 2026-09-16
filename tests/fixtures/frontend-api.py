@@ -15,6 +15,39 @@ MAX_BODY_BYTES = 64 * 1024
 MAX_RESPONSE_BYTES = 10 * 1024 * 1024
 SNAPSHOT_PATH = "/api/local/mc-project-plugin/projects/snapshot"
 CATALOG_PATH = "/api/local/mc-project-plugin/projects/catalog"
+COMMIT_PATH = "/api/local/mc-project-plugin/projects/commit"
+COMMIT_QUERY_KEYS = {"project_id", "commit", "local_generation", "processInstanceId", "registryEpoch", "contextIdentity", "snapshotId"}
+HEX40 = __import__("re").compile(r"^[0-9a-fA-F]{40}$")
+COMMIT_FILE_COUNT = 40
+COMMIT_DIFF_HUNKS = 40
+
+
+def commit_detail(project_id: str, commit_hash: str, data: dict[str, object]) -> dict[str, object]:
+    """Deterministic, bounded CommitDetail for the disposable commit endpoint."""
+    head = data.get("head")
+    resolved = commit_hash if HEX40.match(commit_hash) else (head if isinstance(head, str) else commit_hash)
+    subject = "fixture commit detail"
+    known = data.get("commits")
+    if isinstance(known, list):
+        for item in known:
+            if isinstance(item, dict) and str(item.get("hash", "")).lower() == commit_hash.lower():
+                subject = str(item.get("subject", subject))
+                break
+    files = [{"path": f"src/fixture/module_{index:03d}.ts", "additions": index + 1, "deletions": index} for index in range(COMMIT_FILE_COUNT)]
+    lines = ["diff --git a/src/fixture/module_000.ts b/src/fixture/module_000.ts"]
+    for index in range(COMMIT_DIFF_HUNKS):
+        lines.append(f"@@ -{index + 1},3 +{index + 1},4 @@ module_{index:03d}")
+        lines.append(f" context line {index:03d}")
+        lines.append(f"-removed line {index:03d}")
+        lines.append(f"+added line {index:03d}")
+    return {
+        "hash": resolved,
+        "subject": subject,
+        "author": "Fixture",
+        "date": "2026-09-14T10:00:00+00:00",
+        "files": files,
+        "diff": "\n".join(lines),
+    }
 
 
 def envelope(data: object) -> dict[str, object]:
@@ -126,6 +159,17 @@ def make_handler(snapshot: dict[str, object]):
                     self._send(400, {"ok": False, "error": "INVALID_REQUEST"})
                     return
                 self._send(200, snapshot)
+                return
+            if parsed.path == COMMIT_PATH:
+                params = parse_qs(parsed.query, keep_blank_values=True)
+                single = {key: values for key, values in params.items()}
+                if set(single) != COMMIT_QUERY_KEYS or any(len(values) != 1 for values in single.values()):
+                    self._send(400, {"ok": False, "error": "INVALID_REQUEST"})
+                    return
+                if single["project_id"][0] != project_id or not HEX40.match(single["commit"][0]):
+                    self._send(400, {"ok": False, "error": "INVALID_COMMIT"})
+                    return
+                self._send(200, envelope(commit_detail(project_id, single["commit"][0], data)))
                 return
             self._send(404, {"ok": False, "error": "NOT_FOUND"})
 

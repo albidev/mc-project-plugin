@@ -10,14 +10,6 @@ interface GitLogTerminalProps {
   onSelectCommit: (hash?: string) => void;
 }
 
-export function GitLogBreadcrumb({ label = 'HISTORY', branch, commitMessage, commitCount, onBranchClick }: { label?: string; branch: string; commitMessage?: string; commitCount?: number; onBranchClick?: () => void }) {
-  return <div data-testid="git-log-breadcrumb" className="flex h-8 min-h-8 max-h-8 shrink-0 min-w-0 items-center gap-2 border-b border-[#292b35] bg-[#0b0c10] px-3 py-2 font-mono text-[10px] leading-[15px]">
-    <span className="shrink-0 font-semibold tracking-[0.12em] text-accent">{label}</span><span className="text-slate-600">/</span>
-    {onBranchClick ? <button data-testid="git-log-breadcrumb-branch" type="button" onClick={onBranchClick} className="min-w-0 truncate text-left text-slate-300 hover:text-white" title={branch}>{branch}</button> : <span className="min-w-0 truncate text-slate-300" title={branch}>{branch}</span>}
-    {commitMessage && <><span className="text-slate-600">/</span><span data-testid="git-log-breadcrumb-message" className="min-w-0 truncate text-slate-400" title={commitMessage}>{commitMessage}</span></>}
-    {commitCount !== undefined && <span className="ml-auto shrink-0 text-slate-500">{commitCount} commits</span>}
-  </div>;
-}
 
 type LibraryMeta = {
   shortHash: string;
@@ -35,7 +27,7 @@ type LibraryNodeProps = {
   isIndexPseudoNode: boolean;
 };
 
-const LIBRARY_ROW_HEIGHT = 40;
+const LIBRARY_ROW_HEIGHT = 32;
 
 function refClass(ref: string): string {
   if (ref.startsWith('HEAD')) return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300';
@@ -85,7 +77,7 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
         data-testid="git-log-commit-row"
         data-commit-hash={meta.hash}
         aria-selected={isSelected}
-        className={`flex h-10 w-full min-w-0 items-center text-left font-mono text-[11px] ${isSelected ? 'text-white' : 'text-slate-300'}`}
+        className={`flex h-8 w-full min-w-0 items-center text-left font-mono text-[11px] ${isSelected ? 'text-white' : 'text-slate-300'}`}
         style={{
           height: LIBRARY_ROW_HEIGHT,
           minHeight: LIBRARY_ROW_HEIGHT,
@@ -94,7 +86,7 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
         }}
       >
         <div
-          className="grid h-6 min-h-6 w-full min-w-0 grid-cols-[7ch_minmax(0,1fr)_14ch_14ch] items-center gap-2 hover:bg-[#111923]"
+          className="grid h-6 min-h-6 w-full min-w-0 grid-cols-[7ch_minmax(0,1fr)_14ch_14ch] items-center gap-1.5 hover:bg-[#111923]"
           style={{
             height: 24,
             minHeight: 24,
@@ -125,8 +117,7 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
 
   return (
     <section data-testid="git-log-terminal" aria-label={`Git log ${branch}`} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#08090c] text-[11px] text-slate-300 md:h-full">
-      <GitLogBreadcrumb branch={branch} commitCount={entries.length} />
-      <div data-testid="git-log-scroll" className="min-h-0 min-w-0 flex-1 overflow-auto bg-[#08090c]">
+      <div data-testid="git-log-scroll" tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-auto bg-[#08090c] focus:outline-none">
         {entries.length === 0 ? (
           <div role="status" className="px-3 py-4 text-text-muted">No commits available for this branch.</div>
         ) : (
