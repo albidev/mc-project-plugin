@@ -36,7 +36,7 @@ async function mountedRoute(snapshot = fixture.data, allowReadBack = false) {
     const url = String(input);
     if (url.endsWith('/catalog')) return response([{ project_id: 'demo', name: 'Demo', enabled: true, remote: 'origin', default_branch: 'main' }, { project_id: 'other', name: 'Other', enabled: true, remote: 'origin', default_branch: 'main' }]);
     if (url.includes('/snapshot?')) { snapshotReads += 1; return snapshotReads > 1 && !allowReadBack ? Promise.reject(new Error('offline')) : response(snapshot); }
-    if (url.includes('/commit?')) return response({ hash: fixture.data.head, subject: 'Initial', author: 'Test', date: '2026-09-14T10:00:00+00:00', files: [{ path: 'src/app.ts', additions: 1, deletions: 0 }], diff: 'commit detail from backend' });
+    if (url.includes('/commit?')) return response({ hash: fixture.data.head, subject: 'Initial', author: 'Test', date: '2026-09-14T10:00:00+00:00', files: [{ path: 'src/app.ts', additions: 1, deletions: 0, binary: false }, { path: 'assets/logo.png', additions: 0, deletions: 0, binary: true }], diff: 'commit detail from backend' });
     if (url.includes('/pull-request?')) return response({ number: 1, title: 'Fix route', url: 'https://github.com/example/repo/pull/1', description: 'loaded from backend', author: 'Test', labels: [], reviewers: [], assignees: [], head: 'feature/ui', base: 'main', head_repository: 'example/repo', base_repository: 'example/repo', checks: [], created_at: '2026-09-14T10:00:00+00:00', updated_at: '2026-09-14T11:00:00+00:00', draft: false });
     throw new Error(`unexpected request ${url}`);
   };
@@ -300,6 +300,8 @@ test('renders the selected branch as a terminal graph and routes commit selectio
     await act(async () => { (host.querySelectorAll<HTMLElement>('[data-testid="git-log-commit-row"]')[1])?.click(); await sleep(100); });
     assert.ok(host.querySelector('[data-testid="context-commit-detail"]'));
     assert.match(text(host), /commit detail from backend/);
+    assert.match(text(host), /assets\/logo\.png\s*binary/, 'binary files render a binary marker instead of +N\/-N');
+    assert.match(text(host), /src\/app\.ts\s*\+1\s*-0/, 'textual files keep their +/- counts');
     assert.equal(host.querySelector('[data-testid="context-branch-log"]'), null);
     assert.equal(host.querySelector('[data-testid="context-breadcrumb-message"]')?.textContent, 'main work');
     assert.equal(host.querySelector('button[aria-label="Back to branch log"]'), null);

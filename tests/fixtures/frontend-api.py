@@ -33,7 +33,9 @@ def commit_detail(project_id: str, commit_hash: str, data: dict[str, object]) ->
             if isinstance(item, dict) and str(item.get("hash", "")).lower() == commit_hash.lower():
                 subject = str(item.get("subject", subject))
                 break
-    files = [{"path": f"src/fixture/module_{index:03d}.ts", "additions": index + 1, "deletions": index} for index in range(COMMIT_FILE_COUNT)]
+    files = [{"path": f"src/fixture/module_{index:03d}.ts", "additions": index + 1, "deletions": index, "binary": False} for index in range(COMMIT_FILE_COUNT)]
+    # Issue #12: a binary entry must survive the numstat parser and render distinguishably.
+    files.append({"path": "assets/fixture-logo.png", "additions": 0, "deletions": 0, "binary": True})
     lines = ["diff --git a/src/fixture/module_000.ts b/src/fixture/module_000.ts"]
     for index in range(COMMIT_DIFF_HUNKS):
         lines.append(f"@@ -{index + 1},3 +{index + 1},4 @@ module_{index:03d}")

@@ -264,9 +264,19 @@ class GitAdapter:
         files = []
         for line in lines[1:]:
             fields = line.split("\t")
-            if len(fields) == 3 and fields[0].isdigit() and fields[1].isdigit() and fields[2]:
-                _path(fields[2])
-                files.append({"path": fields[2], "additions": int(fields[0]), "deletions": int(fields[1])})
+            if len(fields) == 3 and fields[2]:
+                additions, deletions = fields[0], fields[1]
+                if additions == "-" and deletions == "-":
+                    # `--numstat` emits `-\t-\t<path>` for binary files: no line counts exist.
+                    # Represent them as 0/0 and flag `binary` so a truly empty textual diff stays distinguishable.
+                    _path(fields[2])
+                    files.append({"path": fields[2], "additions": 0, "deletions": 0, "binary": True})
+                elif additions.isdigit() and deletions.isdigit():
+                    _path(fields[2])
+                    files.append({"path": fields[2], "additions": int(additions),
+                                  "deletions": int(deletions), "binary": False})
+                else:
+                    raise GitAdapterError("GIT_MALFORMED_OUTPUT")
             elif line:
                 raise GitAdapterError("GIT_MALFORMED_OUTPUT")
         if len(files) > 500:
