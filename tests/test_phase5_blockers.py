@@ -75,7 +75,7 @@ def test_mutation_read_rejects_malformed_or_missing_head(tmp_path, fingerprints)
     assert (exc.value.code, exc.value.status_code) == ("INDETERMINATE", 409)
 
 
-def test_failed_mutation_performs_refresh_before_indeterminate(tmp_path):
+def test_failed_mutation_is_definitive_and_state_stays_idle(tmp_path):
     _repo, context, service, mutations = setup_service(tmp_path)
     service.snapshot(context)
     before_generation = service._generation["demo"]
@@ -87,13 +87,18 @@ def test_failed_mutation_performs_refresh_before_indeterminate(tmp_path):
         def run(self, _args):
             raise ServiceError("GIT_COMMAND_FAILED", 409)
 
+    original_runner = mutations.runner_factory
     mutations.runner_factory = FailingRunner
-    with pytest.raises(ServiceError, match="INDETERMINATE"):
+    with pytest.raises(ServiceError) as exc:
         mutations.create(context, "feature/fails")
+    assert (exc.value.code, exc.value.status_code) == ("GIT_COMMAND_FAILED", 409)
+    # A best-effort refresh still happened before returning.
     assert service._generation["demo"] > before_generation
-    assert service._mutation_state["demo"] == "indeterminate"
-    with pytest.raises(ServiceError, match="MUTATION_INDETERMINATE"):
-        mutations.create(context, "feature/again")
+    assert service._mutation_state["demo"] == "idle"
+    # The next mutation is not blocked: the refusal left a determined state.
+    mutations.runner_factory = original_runner
+    result = mutations.create(context, "feature/again")
+    assert result["branch"] == "feature/again"
 
 
 def test_raw_runner_runtime_error_is_mapped_and_state_is_indeterminate(tmp_path):
