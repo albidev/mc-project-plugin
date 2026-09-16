@@ -11,7 +11,7 @@ export interface FileEntry { path: string; status?: string; oldPath?: string; }
 export interface WorkingTree { files: FileEntry[]; }
 export interface ProjectBranch { name: string; current?: boolean; tracking?: string | null; remoteAlias?: string | null; repository?: string | null; relation?: 'up-to-date' | 'ahead' | 'behind' | 'diverged' | 'no-upstream'; ahead?: number; behind?: number; }
 export interface Commit { hash: string; shortHash?: string; subject: string; author?: string; authoredAt?: string; date?: string; merge?: boolean; refs?: string[] | string; parents?: string[]; }
-export interface CommitDetailFile { path: string; additions: number; deletions: number; }
+export interface CommitDetailFile { path: string; additions: number; deletions: number; binary: boolean; }
 export interface CommitDetail { hash: string; subject: string; author: string; date: string; files: CommitDetailFile[]; diff: string; }
 export interface PullRequest { number: number; title: string; url?: string; author?: string; head?: string; base?: string; head_repository?: string | null; base_repository?: string | null; repository?: string; created_at?: string; draft?: boolean; description?: string; labels?: string[]; checks?: string; }
 export interface PullRequestCheck { name: string; status: string; conclusion?: string | null; }

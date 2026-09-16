@@ -475,6 +475,19 @@ async function main() {
     await assertMobileNonOwner(page, 'mobile-commit', 'context-commit-scroll');
   }
   check('commit detail replaces the log', (await countOf(page, 'git-log-terminal')) === 0 && (await countOf(page, 'context-commit-detail')) === 1);
+  // Issue #12 regression guard, asserted on the rendered DOM of the real route: a binary file must
+  // appear in the changed-files list with a `binary` marker, while textual files keep +N/-N.
+  // `innerText` splits each row into its own lines (path, then "+N-N"), so the assertions join them.
+  const renderedFiles = await page.evaluate(() => {
+    const inspector = document.querySelector('[data-testid="context-commit-scroll"]');
+    return (inspector?.innerText ?? '').split('\n').map((line) => line.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  });
+  metrics.renderedCommitFiles = renderedFiles;
+  const fileList = renderedFiles.join('|');
+  check('rendered commit files include the binary entry', /\|assets\/fixture-logo\.png\|binary\|/.test(fileList), JSON.stringify(renderedFiles.slice(80, 90)));
+  check('rendered commit files keep +N/-N for textual files', /\|src\/fixture\/module_000\.ts\|\+\d+-\d+\|/.test(fileList), JSON.stringify(renderedFiles.slice(0, 10)));
+  check('binary entry renders no numeric diff counts', !/fixture-logo\.png\|\+\d+-\d+/.test(fileList));
+  check('every changed file row is rendered', renderedFiles.filter((line) => /^src\/fixture\/module_\d+\.ts$/.test(line)).length === 40 && renderedFiles.includes('assets/fixture-logo.png'));
   check('branch breadcrumb segment is the return control', (await countOf(page, 'context-breadcrumb-branch')) === 1);
   await page.screenshot({ path: resolve(outDir, 'commit.png') });
 

@@ -230,3 +230,58 @@ def test_working_tree_accepts_path_at_depth_32(tmp_path: Path) -> None:
     path = "/".join([f"d{i}" for i in range(31)]) + "/file.txt"
     adapter._run = lambda _operation, _args: f"?? {path}\0"  # type: ignore[method-assign]
     assert adapter.working_tree()["files"][0]["path"] == path
+
+
+def test_reads_commit_detail_with_binary_file_from_real_repository(tmp_path: Path) -> None:
+    """Regression (issue #12): `--numstat` emits `-\\t-\\t<path>` for binary files."""
+    context, repo = make_repo(tmp_path)
+    binary = context.path / "bin.dat"
+    binary.write_bytes(bytes(range(256)) * 4)
+    subprocess.run(["git", "-C", repo, "add", "bin.dat"], check=True)
+    (context.path / "README.md").write_text("hello\nchanged\ntext\n")
+    subprocess.run(["git", "-C", repo, "add", "README.md"], check=True)
+    run = lambda *args: subprocess.run(["git", "-C", repo, *args], check=True, capture_output=True, text=True)
+    run("commit", "-q", "-m", "add binary")
+    binary.write_bytes(bytes(range(256)) * 8)
+    run("commit", "-q", "-am", "change binary")
+    (context.path / "README.md").write_text("hello\nchanged\ntext\nmore\n")
+    run("commit", "-q", "-am", "change text")
+
+    adapter = GitAdapter(context)
+    commits = [str(item["hash"]) for item in adapter.commits("main")]
+    assert [item["subject"] for item in adapter.commits("main")] == [
+        "change text", "change binary", "add binary", "initial commit"]
+
+    text_only = adapter.commit_detail(commits[0])["files"]
+    assert text_only == [{"path": "README.md", "additions": 1, "deletions": 0, "binary": False}]
+
+    binary_only = adapter.commit_detail(commits[1])["files"]
+    assert binary_only == [{"path": "bin.dat", "additions": 0, "deletions": 0, "binary": True}]
+
+    combined = {item["path"]: item for item in adapter.commit_detail(commits[2])["files"]}
+    assert set(combined) == {"README.md", "bin.dat"}
+    assert combined["bin.dat"] == {"path": "bin.dat", "additions": 0, "deletions": 0, "binary": True}
+    assert combined["README.md"] == {"path": "README.md", "additions": 2, "deletions": 0, "binary": False}
+
+    assert adapter.commit_detail(commits[3])["files"] == [
+        {"path": "README.md", "additions": 1, "deletions": 0, "binary": False}]
+
+
+def test_rejects_numstat_counts_that_are_not_numeric_or_dash(tmp_path: Path) -> None:
+    context, _ = make_repo(tmp_path)
+    adapter = GitAdapter(context)
+    adapter._run = lambda operation, _args: (
+        "0" * 40 + "\x00subject\x00author\x002026-09-14T10:00:00+00:00\n\nx\t1\tfile.txt\n"
+        if operation == "show" else "diff\n")  # type: ignore[method-assign]
+    with pytest.raises(GitAdapterError, match="GIT_MALFORMED_OUTPUT"):
+        adapter.commit_detail("0" * 40)
+
+
+def test_rejects_empty_path_on_binary_numstat_line(tmp_path: Path) -> None:
+    context, _ = make_repo(tmp_path)
+    adapter = GitAdapter(context)
+    adapter._run = lambda operation, _args: (
+        "0" * 40 + "\x00subject\x00author\x002026-09-14T10:00:00+00:00\n\n-\t-\t\n"
+        if operation == "show" else "diff\n")  # type: ignore[method-assign]
+    with pytest.raises(GitAdapterError, match="GIT_MALFORMED_OUTPUT"):
+        adapter.commit_detail("0" * 40)

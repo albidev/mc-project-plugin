@@ -58,7 +58,7 @@ function CommitDetailView({ detail, loading }: { detail?: unknown; loading?: boo
           <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted"><FileText size={12} />Changed files <span className="text-text-subtle">{commit.files.length}</span></div>
           <div className="divide-y divide-[#1a1c22]">
             {commit.files.length === 0 ? <p className="px-1 py-2 text-xs text-text-muted">No file changes reported.</p> : commit.files.map((file) => (
-              <div key={file.path} className="flex items-center justify-between gap-3 px-1 py-1 text-[11px]"><span className="min-w-0 truncate font-mono text-text" title={file.path}>{file.path}</span><span className="shrink-0 font-mono text-[10px]"><span className="text-[#00e676]">+{file.additions}</span><span className="ml-2 text-[#ff5570]">-{file.deletions}</span></span></div>
+              <div key={file.path} className="flex items-center justify-between gap-3 px-1 py-1 text-[11px]"><span className="min-w-0 truncate font-mono text-text" title={file.path}>{file.path}</span>{file.binary ? <span className="shrink-0 font-mono text-[10px] text-text-subtle">binary</span> : <span className="shrink-0 font-mono text-[10px]"><span className="text-[#00e676]">+{file.additions}</span><span className="ml-2 text-[#ff5570]">-{file.deletions}</span></span>}</div>
             ))}
           </div>
         </section>

@@ -8,7 +8,7 @@ import { ApiError, projectsApi, validCommitDetail, validPullRequestDetail, valid
 const browser = new Window({ url: 'http://localhost/mc-project-plugin' });
 Object.assign(globalThis, { window: browser, DOMException: browser.DOMException });
 
-const commitDetail = { hash: 'a'.repeat(40), subject: 'Initial', author: 'Test', date: '2026-09-14T10:00:00Z', files: [{ path: 'src/app.ts', additions: 1, deletions: 0 }], diff: 'diff --git a/src/app.ts b/src/app.ts' };
+const commitDetail = { hash: 'a'.repeat(40), subject: 'Initial', author: 'Test', date: '2026-09-14T10:00:00Z', files: [{ path: 'src/app.ts', additions: 1, deletions: 0, binary: false }], diff: 'diff --git a/src/app.ts b/src/app.ts' };
 const pullRequestDetail = { number: 1, title: 'Fix route', url: 'https://github.com/example/repo/pull/1', description: 'Details', author: 'davide', labels: [], reviewers: [], assignees: [], head: 'feature/ui', base: 'main', head_repository: 'example/repo', base_repository: 'example/repo', checks: [], created_at: '2026-09-14T10:00:00Z', updated_at: '2026-09-14T11:00:00Z', draft: false };
 const snapshot = { project: { repository: 'example/repo' }, snapshotId: 'snap-1' } as never;
 const ok = (data: unknown) => new Response(JSON.stringify({ ok: true, data, meta: { schemaVersion: 1, requestId: 'test-request', observedAt: '2026-09-14T10:00:00+00:00' } }), { status: 200 });
@@ -17,7 +17,10 @@ const snapshotFixture = JSON.parse(readFileSync(fileURLToPath(new URL('../../tes
 test('detail validators reject unknown, malformed, and unbounded payloads', () => {
   assert.equal(validCommitDetail(commitDetail), true);
   assert.equal(validCommitDetail({ ...commitDetail, extra: true }), false);
-  assert.equal(validCommitDetail({ ...commitDetail, files: [{ path: '../escape', additions: 1, deletions: 0 }] }), false);
+  assert.equal(validCommitDetail({ ...commitDetail, files: [{ path: '../escape', additions: 1, deletions: 0, binary: false }] }), false);
+  assert.equal(validCommitDetail({ ...commitDetail, files: [{ path: 'src/app.ts', additions: 1, deletions: 0 }] }), false);
+  assert.equal(validCommitDetail({ ...commitDetail, files: [{ path: 'src/app.ts', additions: 1, deletions: 0, binary: 'yes' }] }), false);
+  assert.equal(validCommitDetail({ ...commitDetail, files: [{ path: 'src/app.ts', additions: 0, deletions: 0, binary: true }] }), true);
   assert.equal(validPullRequestDetail(pullRequestDetail, 'example/repo'), true);
   assert.equal(validPullRequestDetail({ ...pullRequestDetail, description: '' }, 'example/repo'), true);
   assert.equal(validPullRequestDetail({ ...pullRequestDetail, description: 0 }, 'example/repo'), false);
