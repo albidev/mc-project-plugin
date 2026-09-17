@@ -144,10 +144,53 @@ function DiffView({ diff, viewType = 'unified', onViewTypeChange, compact }: { d
     );
   }
 
+  if (compact) {
+    return (
+      <div ref={containerRef} className="rdv-scope relative min-w-0 max-w-full overflow-x-auto">
+        {blocks.map((block) => {
+          const file = block.file;
+          const path = formatPath(file);
+          if (isHunkless(file)) return <HunklessSection key={path || file.oldPath} block={block} />;
+          return (
+            <div key={path || file.oldPath} data-testid="diff-file-section" data-file-path={path} className="border-b border-border-subtle last:border-b-0">
+              <div className="flex items-center gap-2 border-b border-border-subtle bg-surface px-2 py-1 font-mono cp-11 leading-tight text-text">
+                <span data-testid="diff-file-section-path" className="min-w-0 flex-1 truncate">{path}</span>
+                <span className="shrink-0 font-mono cp-10 text-positive">+{countChanges(file.hunks).added}</span>
+                <span className="shrink-0 font-mono cp-10 text-negative">-{countChanges(file.hunks).deleted}</span>
+              </div>
+              <Diff viewType={viewType} diffType={file.type ?? 'modify'} hunks={file.hunks} className="rdv-root">
+                {renderHunks(file.hunks)}
+              </Diff>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
-    <div ref={containerRef} data-testid={compact ? undefined : 'context-diff'} tabIndex={compact ? undefined : 0} onScroll={() => { if (!compact) { const el = containerRef.current; setShowTop(Boolean(el && el.scrollTop > 300)); } }} className={compact ? 'rdv-scope relative min-w-0 max-w-full overflow-x-auto' : 'rdv-scope relative flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-auto overflow-y-scroll overscroll-contain bg-surface px-1.5 py-1'}>
-      {blocks.length > 1 && !compact && <DiffFileList blocks={blocks} onSelect={scrollToFile} />}
-      {!compact && showTop && (
+    <div className="rdv-scope relative flex min-h-0 min-w-0 max-w-full flex-1 flex-col bg-surface">
+      <div ref={containerRef} data-testid="context-diff" tabIndex={0} onScroll={() => { const el = containerRef.current; setShowTop(Boolean(el && el.scrollTop > 300)); }} className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-auto overflow-y-scroll overscroll-contain px-1.5 py-1">
+        {blocks.length > 1 && <DiffFileList blocks={blocks} onSelect={scrollToFile} />}
+        {blocks.map((block) => {
+          const file = block.file;
+          const path = formatPath(file);
+          if (isHunkless(file)) return <HunklessSection key={path || file.oldPath} block={block} />;
+          return (
+            <div key={path || file.oldPath} data-testid="diff-file-section" data-file-path={path} className="border-b border-border-subtle last:border-b-0">
+              <div className="flex items-center gap-2 border-b border-border-subtle bg-surface px-2 py-1 font-mono cp-11 leading-tight text-text">
+                <span data-testid="diff-file-section-path" className="min-w-0 flex-1 truncate">{path}</span>
+                <span className="shrink-0 font-mono cp-10 text-positive">+{countChanges(file.hunks).added}</span>
+                <span className="shrink-0 font-mono cp-10 text-negative">-{countChanges(file.hunks).deleted}</span>
+              </div>
+              <Diff viewType={viewType} diffType={file.type ?? 'modify'} hunks={file.hunks} className="rdv-root">
+                {renderHunks(file.hunks)}
+              </Diff>
+            </div>
+          );
+        })}
+      </div>
+      {showTop && (
         <div
           role="button"
           tabIndex={0}
@@ -156,28 +199,11 @@ function DiffView({ diff, viewType = 'unified', onViewTypeChange, compact }: { d
           title="Torna in cima"
           onClick={scrollToTop}
           onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); scrollToTop(); } }}
-          className="sticky bottom-3 z-30 ml-auto mb-3 mr-3 flex h-8 w-8 cursor-pointer items-center justify-center self-end rounded-full border border-border bg-surface-raised text-text-muted shadow-lg hover:bg-accent hover:text-surface hover:shadow-xl"
+          className="absolute bottom-3 right-3 z-30 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-border bg-surface-raised text-text-muted shadow-lg hover:bg-accent hover:text-surface hover:shadow-xl"
         >
           <ArrowUp size={16} />
         </div>
       )}
-      {blocks.map((block) => {
-        const file = block.file;
-        const path = formatPath(file);
-        if (isHunkless(file)) return <HunklessSection key={path || file.oldPath} block={block} />;
-        return (
-          <div key={path || file.oldPath} data-testid="diff-file-section" data-file-path={path} className="border-b border-border-subtle last:border-b-0">
-            <div className="flex items-center gap-2 border-b border-border-subtle bg-surface px-2 py-1 font-mono cp-11 leading-tight text-text">
-              <span data-testid="diff-file-section-path" className="min-w-0 flex-1 truncate">{path}</span>
-              <span className="shrink-0 font-mono cp-10 text-positive">+{countChanges(file.hunks).added}</span>
-              <span className="shrink-0 font-mono cp-10 text-negative">-{countChanges(file.hunks).deleted}</span>
-            </div>
-            <Diff viewType={viewType} diffType={file.type ?? 'modify'} hunks={file.hunks} className="rdv-root">
-              {renderHunks(file.hunks)}
-            </Diff>
-          </div>
-        );
-      })}
     </div>
   );
 }
