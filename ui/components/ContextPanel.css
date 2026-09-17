@@ -34,17 +34,16 @@
   word-wrap: normal;
 }
 
-/* Harmonize interactive diff/file rows with the sidebar commit rows:
-   the host's unlayered `button { border-radius: var(--control-radius) }`
-   (12px) beats every @layer rule, so the 6px needs !important (pattern:
-   #mc-project-sidebar .commit-row in route.css). Same hover language too. */
-[data-testid='mc-projects-route'] [data-testid='commit-file-link'],
-[data-testid='mc-projects-route'] [data-testid='diff-file-list-item'] {
-  border-radius: 6px !important;
+/* Harmonize interactive diff/file rows with the sidebar commit rows (6px radius,
+   same hover wash, mockup v4 language). These are div[role=button] so the host's
+   button radius rule does not apply — no !important needed. */
+[data-testid='commit-file-link'],
+[data-testid='diff-file-list-item'] {
+  border-radius: 6px;
 }
-[data-testid='mc-projects-route'] [data-testid='commit-file-link']:hover,
-[data-testid='mc-projects-route'] [data-testid='diff-file-list-item']:hover {
-  background: color-mix(in srgb, var(--color-surface-sunken) 60%, transparent) !important;
+[data-testid='commit-file-link']:hover,
+[data-testid='diff-file-list-item']:hover {
+  background: color-mix(in srgb, var(--color-surface-sunken) 60%, transparent);
 }
 
 [data-testid='context-diff'] {

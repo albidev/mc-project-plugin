@@ -75,12 +75,14 @@ function DiffFileList({ blocks, onSelect }: { blocks: DiffBlock[]; onSelect: (bl
         const path = formatPath(file);
         const { added, deleted } = countChanges(file.hunks);
         return (
-          <button
+          <div
             key={path || file.oldPath || file.newPath}
-            type="button"
+            role="button"
+            tabIndex={0}
             data-testid="diff-file-list-item"
             data-file-path={path}
             onClick={() => onSelect(block)}
+            onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(block); } }}
             className="flex w-full cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-left font-mono cp-11 leading-tight text-text-muted hover:bg-surface-raised hover:text-text"
           >
             <span className="min-w-0 flex-1 truncate">{path}</span>
@@ -92,7 +94,7 @@ function DiffFileList({ blocks, onSelect }: { blocks: DiffBlock[]; onSelect: (bl
                 <span className="ml-2 text-negative">-{deleted}</span>
               </span>
             )}
-          </button>
+          </div>
         );
       })}
     </div>
@@ -184,10 +186,10 @@ function CommitDetailView({ detail, loading }: { detail?: unknown; loading?: boo
             {commit.files.length === 0 ? <p className="px-1 py-2 text-xs text-text-muted">No file changes reported.</p> : commit.files.map((file) => file.binary ? (
               <div key={file.path} className="flex items-center justify-between gap-3 px-1 py-1 cp-11"><span className="min-w-0 truncate font-mono text-text" title={file.path}>{file.path}</span><span className="shrink-0 font-mono cp-10 text-text-subtle">binary</span></div>
             ) : (
-              <button key={file.path} type="button" data-testid="commit-file-link" data-file-path={file.path} onClick={() => scrollCommitToFile(file.path)} title={`Scroll to ${file.path} in the diff`} className="flex w-full cursor-pointer items-center justify-between gap-3 px-1 py-1 text-left font-mono cp-11 hover:bg-surface-raised">
+              <div key={file.path} role="button" tabIndex={0} data-testid="commit-file-link" data-file-path={file.path} onClick={() => scrollCommitToFile(file.path)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); scrollCommitToFile(file.path); } }} title={`Scroll to ${file.path} in the diff`} className="flex w-full cursor-pointer items-center justify-between gap-3 rounded px-1 py-1 text-left font-mono cp-11 hover:bg-surface-raised">
                 <span className="min-w-0 truncate text-text">{file.path}</span>
                 <span className="shrink-0 font-mono cp-10"><span className="text-positive">+{file.additions}</span><span className="ml-2 text-negative">-{file.deletions}</span></span>
-              </button>
+              </div>
             ))}
           </div>
         </section>
