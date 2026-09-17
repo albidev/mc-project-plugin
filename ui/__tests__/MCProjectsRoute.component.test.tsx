@@ -275,6 +275,23 @@ test('exposes one stable context shell with state-specific exclusive view IDs', 
     assert.equal(count('git-log-commit-row'), 0);
     assert.equal(count('context-diff'), 0);
     assert.equal(host.querySelector('button[aria-label="Back to branch log"]'), null);
+    // Commit-detail metadata readability redesign: the meta block is a semantic
+    // dl with labeled rows; the date renders relative (never the raw ISO) while
+    // the full ISO stays on the <time> element; the hash renders short (7 chars)
+    // in accent with the full hash kept in title.
+    const metaGrid = host.querySelector('[data-testid="commit-meta-grid"]');
+    assert.ok(metaGrid, 'commit meta grid renders');
+    assert.equal(metaGrid?.querySelectorAll(':scope > div').length, 3);
+    assert.match(text(host), /Autore/);
+    assert.match(text(host), /Data/);
+    assert.match(text(host), /Hash/);
+    const timeEl = metaGrid?.querySelector('time');
+    assert.ok(timeEl, 'date renders as a time element');
+    assert.equal(timeEl?.getAttribute('datetime'), '2026-09-14T10:00:00+00:00');
+    assert.doesNotMatch(text(host), /2026-09-14T10:00:00\\+00:00/);
+    const hashDd = [...(metaGrid?.querySelectorAll(':scope > div') ?? [])].find((row) => row.querySelector('dt')?.textContent?.includes('Hash'))?.querySelector('dd');
+    assert.equal(hashDd?.textContent, 'aaaaaaa');
+    assert.equal(hashDd?.getAttribute('title'), 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
     // The branch return control must not be a <button>: the host styles button with an
     // !important 44px touch target, which would overflow the fixed 32px breadcrumb shell.
     const breadcrumbBranch = host.querySelector<HTMLElement>('[data-testid="context-breadcrumb-branch"]');

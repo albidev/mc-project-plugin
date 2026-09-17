@@ -235,7 +235,23 @@ function CommitDetailView({ detail, loading }: { detail?: unknown; loading?: boo
   return (
     <div data-testid="context-commit-inspector" className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-sunken">
       <div ref={commitScrollRef} data-testid="context-commit-scroll" tabIndex={0} onScroll={() => { const el = commitScrollRef.current; setShowCommitTop(Boolean(el && el.scrollTop > 300)); }} className="min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-3 py-2">
-        <div data-testid="context-commit-detail"><h3 className="break-words text-sm font-semibold leading-snug text-text">{commit.subject}</h3><div className="mt-1 grid grid-cols-1 gap-0.5 cp-11 text-text-muted"><span className="inline-flex items-center gap-1.5"><UserRound size={12} className="text-text-subtle" />{commit.author}</span><span className="inline-flex items-center gap-1.5"><Clock3 size={12} className="text-text-subtle" />{commit.date}</span><span className="break-all font-mono cp-10 text-text-subtle">{commit.hash}</span></div></div>
+        <div data-testid="context-commit-detail">
+          <h3 className="break-words text-sm font-semibold leading-snug text-text">{commit.subject}</h3>
+          <dl data-testid="commit-meta-grid" className="mt-2 grid grid-cols-1 gap-1.5">
+            <div className="flex items-center gap-2.5">
+              <dt className="flex w-24 shrink-0 items-center gap-1.5 cp-10 font-semibold uppercase tracking-[0.08em] text-text-subtle"><UserRound size={14} className="shrink-0 text-text-subtle" />Autore</dt>
+              <dd className="min-w-0 cp-12 text-text" title={commit.author}>{commit.author}</dd>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <dt className="flex w-24 shrink-0 items-center gap-1.5 cp-10 font-semibold uppercase tracking-[0.08em] text-text-subtle"><Clock3 size={14} className="shrink-0 text-text-subtle" />Data</dt>
+              <dd className="min-w-0 cp-12 text-text"><time dateTime={commit.date} title={commit.date}>{relativeTime(commit.date)}</time></dd>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <dt className="flex w-24 shrink-0 items-center gap-1.5 cp-10 font-semibold uppercase tracking-[0.08em] text-text-subtle"><GitCommitHorizontal size={14} className="shrink-0 text-text-subtle" />Hash</dt>
+              <dd className="min-w-0 break-all font-mono cp-11 text-accent" title={commit.hash}>{commit.hash.slice(0, 7)}</dd>
+            </div>
+          </dl>
+        </div>
         <section>
           <div className="mb-1 flex items-center gap-1.5 cp-10 font-semibold uppercase tracking-[0.14em] text-text-muted"><FileText size={12} />Changed files <span className="text-text-subtle">{commit.files.length}</span></div>
           <div className="divide-y divide-border-subtle">
