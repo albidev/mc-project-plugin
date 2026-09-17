@@ -106,7 +106,7 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
         <span className="flex min-w-0 items-center gap-2 overflow-hidden">
           <span className="flex shrink-0 gap-1 overflow-hidden">
             {meta.refs.map((ref) => (
-              <span key={ref} data-testid="git-log-ref" className={`max-w-[24ch] truncate rounded border px-1 py-px cp-10 leading-tight ${refClass(ref)}`} title={ref}>{ref}</span>
+              <span key={ref} data-testid="git-log-ref" className={`ref-max-w truncate rounded border px-1 py-px cp-10 leading-tight ${refClass(ref)}`} title={ref}>{ref}</span>
             ))}
           </span>
           <span className="min-w-0 truncate cp-12 font-medium text-text">{meta.message}</span>

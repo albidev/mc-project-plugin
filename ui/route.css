@@ -157,6 +157,9 @@
 .cp-13 { font-size: 13px; }
 .cp-leading-tight { line-height: 1.05; }
 .cp-mono { font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+/* Fase 4: ultimi valori arbitrari migrati a classi (nessun arbitrary value in className) */
+.ref-max-w { max-width: 24ch; }
+.overlay-w { width: min(400px, calc(100vw - 40px)); }
 /* Branch topology (issue #10) */
 #mc-project-sidebar .branch-topology { padding: 2px 4px 4px; }
 #mc-project-sidebar .branch-tab { background: transparent; border: none; color: var(--color-text-subtle); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 6px; cursor: pointer; transition: background .12s, color .12s; }
