@@ -113,6 +113,23 @@ function HunklessSection({ block }: { block: DiffBlock }) {
   );
 }
 
+function ScrollTopFab({ scroller, onScroll, className }: { scroller: HTMLElement | null; onScroll: () => void; className?: string }) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      data-testid="diff-scroll-top"
+      aria-label="Torna in cima"
+      title="Torna in cima"
+      onClick={onScroll}
+      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onScroll(); } }}
+      className={className ?? 'absolute bottom-3 right-3 z-30 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-accent/30 bg-accent/15 text-accent shadow-lg backdrop-blur hover:bg-accent/25 hover:shadow-xl'}
+    >
+      <ArrowUp size={16} />
+    </div>
+  );
+}
+
 function DiffView({ diff, viewType = 'unified', onViewTypeChange, compact }: { diff: string; viewType?: 'unified' | 'split'; onViewTypeChange?: (view: 'unified' | 'split') => void; compact?: boolean }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [showTop, setShowTop] = React.useState(false);
@@ -190,20 +207,7 @@ function DiffView({ diff, viewType = 'unified', onViewTypeChange, compact }: { d
           );
         })}
       </div>
-      {showTop && (
-        <div
-          role="button"
-          tabIndex={0}
-          data-testid="diff-scroll-top"
-          aria-label="Torna in cima al diff"
-          title="Torna in cima"
-          onClick={scrollToTop}
-          onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); scrollToTop(); } }}
-          className="absolute bottom-3 right-3 z-30 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-accent/30 bg-accent/15 text-accent shadow-lg backdrop-blur hover:bg-accent/25 hover:shadow-xl"
-        >
-          <ArrowUp size={16} />
-        </div>
-      )}
+      {showTop && <ScrollTopFab scroller={containerRef.current} onScroll={scrollToTop} />}
     </div>
   );
 }
@@ -217,14 +221,20 @@ function CommitDetailView({ detail, loading }: { detail?: unknown; loading?: boo
     </div>
   );
   const commit = detail as CommitDetail;
+  const [showCommitTop, setShowCommitTop] = React.useState(false);
+  const commitScrollRef = React.useRef<HTMLDivElement>(null);
   const scrollCommitToFile = (path: string) => {
     const inspector = document.querySelector<HTMLElement>('[data-testid="context-commit-inspector"]');
     const target = inspector?.querySelector<HTMLElement>(`[data-testid="diff-file-section"][data-file-path="${path.replace(/"/g, '\\"')}"]`);
     if (target && typeof target.scrollIntoView === 'function') target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+  const scrollCommitTop = () => {
+    const scroller = commitScrollRef.current;
+    if (scroller && typeof scroller.scrollTo === 'function') scroller.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   return (
-    <div data-testid="context-commit-inspector" className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-sunken">
-      <div data-testid="context-commit-scroll" tabIndex={0} className="min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-3 py-2">
+    <div data-testid="context-commit-inspector" className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-sunken">
+      <div ref={commitScrollRef} data-testid="context-commit-scroll" tabIndex={0} onScroll={() => { const el = commitScrollRef.current; setShowCommitTop(Boolean(el && el.scrollTop > 300)); }} className="min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-3 py-2">
         <div data-testid="context-commit-detail"><h3 className="break-words text-sm font-semibold leading-snug text-text">{commit.subject}</h3><div className="mt-1 grid grid-cols-1 gap-0.5 cp-11 text-text-muted"><span className="inline-flex items-center gap-1.5"><UserRound size={12} className="text-text-subtle" />{commit.author}</span><span className="inline-flex items-center gap-1.5"><Clock3 size={12} className="text-text-subtle" />{commit.date}</span><span className="break-all font-mono cp-10 text-text-subtle">{commit.hash}</span></div></div>
         <section>
           <div className="mb-1 flex items-center gap-1.5 cp-10 font-semibold uppercase tracking-[0.14em] text-text-muted"><FileText size={12} />Changed files <span className="text-text-subtle">{commit.files.length}</span></div>
@@ -241,6 +251,7 @@ function CommitDetailView({ detail, loading }: { detail?: unknown; loading?: boo
         </section>
         {commit.diff && <details className="overflow-hidden" open><summary className="cursor-pointer border-y border-border-subtle px-1 py-1 cp-10 font-semibold uppercase tracking-[0.14em] text-text-muted">Diff preview</summary><DiffView diff={commit.diff} compact /></details>}
       </div>
+      {showCommitTop && <ScrollTopFab scroller={commitScrollRef.current} onScroll={scrollCommitTop} />}
     </div>
   );
 }
