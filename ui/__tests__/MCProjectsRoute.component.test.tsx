@@ -53,15 +53,24 @@ async function click(host: HTMLElement, selector: string) {
 }
 function text(host: HTMLElement) { return host.textContent ?? ''; }
 
-test('renders only populated GitHub blocks', { concurrency: false }, async () => {
+test('renders only populated GitHub blocks and the item-row card contract', { concurrency: false }, async () => {
   installDom();
   const host = document.createElement('div'); document.body.append(host);
   const root = createRoot(host);
-  await act(async () => { root.render(React.createElement(GitHubFooter, { issues: [], pullRequests: [{ number: 1, title: 'PR', url: undefined, repository: 'example/repo' }], status: 'ready', onPullRequest: () => {} })); await sleep(); });
+  await act(async () => { root.render(React.createElement(GitHubFooter, { issues: [{ number: 2, title: 'Track issue', url: 'https://github.com/example/repo/issues/2', created_at: new Date(Date.now() - 2 * 86_400_000).toISOString(), repository: 'example/repo' }], pullRequests: [{ number: 1, title: 'PR', url: undefined, draft: true, created_at: new Date(Date.now() - 86_400_000).toISOString(), repository: 'example/repo' }], status: 'ready', bare: true })); await sleep(); });
   try {
     assert.ok(host.querySelector('[data-testid="github-section"]'));
-    assert.equal(host.querySelector('[data-testid="github-issues"]'), null);
+    assert.ok(host.querySelector('[data-testid="github-issues"]'));
     assert.ok(host.querySelector('[data-testid="github-pull-requests"]'));
+    // item-row contract: number, title, age, external link; PR draft badge; no Details button.
+    assert.equal(host.querySelectorAll('.gh-item-row').length, 2);
+    assert.equal(host.querySelectorAll('.gh-item-row .num-issue').length, 1);
+    assert.equal(host.querySelectorAll('.gh-item-row .num-pr').length, 1);
+    assert.equal(host.querySelectorAll('.gh-item-row .pr-draft').length, 1);
+    assert.equal(host.querySelectorAll('.gh-item-row .iage').length, 2);
+    assert.equal(host.querySelectorAll('.gh-item-row .ext').length, 2);
+    assert.equal(host.querySelector('[data-testid="pr-detail-1"]'), null);
+    assert.ok(host.querySelector('a[href="https://github.com/example/repo/issues/2"][target="_blank"][rel="noreferrer"]'));
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -246,13 +255,18 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
     assert.equal(host.querySelector('pre[data-testid="context-detail"]'), null);
     assert.equal(host.querySelector('button[aria-label="Back to branch log"]'), null);
 
-    await click(host, '[data-testid="pr-detail-1"]');
-    await act(async () => { await sleep(100); });
-    assert.match(text(host), /loaded from backend/);
-    assert.ok(host.querySelector('a[href="https://github.com/example/repo/pull/1"][target="_blank"]'));
-    assert.ok(host.querySelector('a[href="https://github.com/example/repo/issues/2"][target="_blank"]'));
+    // GitHub rows are the external link itself (no in-app Details affordance).
+    assert.ok(host.querySelector('a[href="https://github.com/example/repo/pull/1"][target="_blank"][rel="noreferrer"]'));
+    assert.equal(host.querySelector('[data-testid="pr-detail-1"]'), null);
+    assert.ok(host.querySelector('a[href="https://github.com/example/repo/issues/2"][target="_blank"][rel="noreferrer"]'));
     assert.equal(host.querySelectorAll('main').length, 1);
-    assert.equal(host.querySelectorAll('main > div [class*="overflow-y-auto"]').length, 1);
+    // No spurious scroll owners: after the commit detail the two legitimate
+    // vertical scroll owners are the sidebar (md:overflow-y-auto) and the
+    // commit detail scroll area. Before 17/09 the flow ended on the (removed)
+    // PR detail panel, which unmounted the commit scroll and left 1 owner.
+    assert.equal(host.querySelectorAll('main > div [class*="overflow-y-auto"]').length, 2);
+    assert.ok(host.querySelector('[data-testid="context-commit-scroll"]'));
+    assert.ok(host.querySelector('#mc-project-sidebar'));
   } finally { await act(async () => root.unmount()); }
 });
 
