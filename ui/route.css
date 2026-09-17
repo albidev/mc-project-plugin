@@ -241,17 +241,20 @@
 #mc-project-sidebar .commit-row.selected:hover {
   background: color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
-/* Subject: two lines max, ellipsis after the second line regardless of
- * column width (declared truncation behaviour, #17). */
+/* Subject: one line, ellipsized — keeps every row the same height even when
+ * the message is long (#17). Truncation happens at the column edge; the full
+ * message is available in HISTORY/COMMIT views. */
 #mc-project-sidebar .commit-subject {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-/* Second line: single compact metadata line, no wrap explosion. */
+/* Second line: hash + branch refs, no wrap explosion. */
 #mc-project-sidebar .commit-meta {
+  overflow: hidden;
+}
+/* Third line: relative date + author, muted, single ellipsized line. */
+#mc-project-sidebar .commit-byline {
   overflow: hidden;
 }
 #mc-project-sidebar .commit-ref {

@@ -26,19 +26,20 @@ export function CommitTimeline({ commits, onSelect, selectedCommitHash }: { comm
       const isSelected = selectedCommitHash === commit.hash;
       return <button type="button" data-commit-hash={commit.hash} aria-selected={isSelected} key={commit.hash} onClick={() => onSelect(commit.hash)} className={`commit-row ${isSelected ? 'selected' : ''} group flex w-full cursor-pointer items-start gap-2 cp-11 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent`}>
         <span className="min-w-0 flex-1">
-          {/* Two lines max for the subject (clamped, ellipsis after line 2), one
-           * compact metadata line. Refs and parent count ride the same line as
-           * badges instead of wrapping onto their own rows (measured before:
-           * 7 wrapped lines on a merge commit). No rail/dots in the sidebar:
-           * HISTORY owns the graph; this list owns readability (#17). */}
-          <span className="commit-subject block text-text">{commit.subject}{commit.merge || (commit.parents?.length ?? 0) > 1 ? ' · merge' : ''}</span>
+          {/* One subject line, ellipsized: keeps every row the same height.
+           * Second line: hash + branch refs (max 2 + +N). Third line: date
+           * and author, both muted. No rail/dots in the sidebar: HISTORY owns
+           * the graph; this list owns readability (#17). */}
+          <span className="commit-subject block truncate text-text">{commit.subject}{commit.merge || (commit.parents?.length ?? 0) > 1 ? ' · merge' : ''}</span>
           <span className="commit-meta mt-0.5 flex min-w-0 items-center gap-1.5 cp-10 text-text-muted">
             <span className="commit-hash shrink-0 font-mono text-accent">{commit.shortHash ?? commit.hash.slice(0, 7)}</span>
-            <span className="min-w-0 truncate text-text-subtle">{commit.author}</span>
-            <time className="shrink-0 text-text-subtle" dateTime={date} title={date}>{relTime(date)}</time>
             {refs.slice(0, 2).map((ref) => <span key={ref} title={ref} className="commit-ref max-w-24 truncate rounded border border-border px-1 py-px cp-9 leading-tight text-accent">{ref}</span>)}
             {refs.length > 2 && <span className="shrink-0 text-text-subtle">+{refs.length - 2}</span>}
             {commit.parents && commit.parents.length > 1 && <span className="shrink-0 text-text-subtle">· {commit.parents.length} parents</span>}
+          </span>
+          <span className="commit-byline mt-0.5 flex min-w-0 items-center gap-1.5 cp-10 text-text-subtle">
+            <time dateTime={date} title={date}>{relTime(date)}</time>
+            <span className="min-w-0 truncate">{commit.author}</span>
           </span>
         </span>
       </button>;

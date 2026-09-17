@@ -256,7 +256,7 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
   } finally { await act(async () => root.unmount()); }
 });
 
-test('sidebar commit list: no dots/rail, clamp subject, real selection state', { concurrency: false }, async () => {
+test('sidebar commit list: no dots/rail, single-line subject, 3-line hierarchy, real selection state', { concurrency: false }, async () => {
   const clean = structuredClone(fixture.data);
   clean.commits = [
     { hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', shortHash: 'aaaaaaa', subject: 'main work', author: 'Maintainer', date: '2026-09-14T10:00:00+00:00', merge: false, refs: ['HEAD -> main'], parents: [] },
@@ -273,10 +273,19 @@ test('sidebar commit list: no dots/rail, clamp subject, real selection state', {
     // No isolated dots and no graph rail in the sidebar list (decision #17).
     assert.equal(host.querySelectorAll('[data-testid="commits-section"] .commit-dot').length, 0);
     assert.equal(host.querySelectorAll('[data-testid="commits-section"] .commit-rail').length, 0);
-    // Subject uses the two-line clamp, not single-line truncate.
+    // Subject is a single ellipsized line: every row stays the same height.
     const subject = host.querySelector<HTMLElement>('[data-testid="commits-section"] .commit-subject');
     assert.ok(subject);
-    assert.equal(subject.classList.contains('truncate'), false);
+    assert.equal(subject.classList.contains('truncate'), true);
+    // 3-line hierarchy: subject, hash+refs, date+author (each row has all three).
+    const row = host.querySelector<HTMLElement>('[data-commit-hash="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]');
+    assert.ok(row);
+    assert.equal(row.querySelectorAll('.commit-subject').length, 1);
+    assert.equal(row.querySelectorAll('.commit-meta .commit-hash').length, 1);
+    assert.equal(row.querySelectorAll('.commit-ref').length, 1);
+    assert.equal(row.querySelectorAll('.commit-byline time').length, 1);
+    const bylineText = row.querySelector<HTMLElement>('.commit-byline')?.textContent ?? '';
+    assert.match(bylineText, /agoMaintainer/);
     // Nothing selected before a click.
     assert.equal(host.querySelectorAll('[data-testid="commits-section"] [aria-selected="true"]').length, 0);
     // Click the head commit (the fixture mock serves its detail): selection
