@@ -19,6 +19,21 @@
   --diff-code-delete-edit-background-color: color-mix(in srgb, var(--color-negative) 35%, transparent);
 }
 
+/* Keep long diff lines on ONE line (GitHub style): the library defaults to
+   pre-wrap + break-all on a fixed table, which wraps code mid-line and looks
+   unformatted. Let the table grow with its content and scroll horizontally. */
+.rdv-scope .diff {
+  table-layout: auto;
+  width: max-content;
+  min-width: 100%;
+}
+.rdv-scope .diff-line,
+.rdv-scope .diff-code {
+  white-space: pre;
+  word-break: normal;
+  word-wrap: normal;
+}
+
 [data-testid='context-diff'] {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--color-border) 70%, var(--color-text-subtle) 30%) var(--color-surface-sunken);

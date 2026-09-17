@@ -137,7 +137,7 @@ function DiffView({ diff, viewType = 'unified', onViewTypeChange, compact }: { d
   }
 
   return (
-    <div ref={containerRef} data-testid={compact ? undefined : 'context-diff'} tabIndex={compact ? undefined : 0} className={compact ? 'rdv-scope min-w-0' : 'rdv-scope flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-auto overflow-y-scroll overscroll-contain bg-surface px-1.5 py-1'}>
+    <div ref={containerRef} data-testid={compact ? undefined : 'context-diff'} tabIndex={compact ? undefined : 0} className={compact ? 'rdv-scope min-w-0 max-w-full overflow-x-auto' : 'rdv-scope flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-auto overflow-y-scroll overscroll-contain bg-surface px-1.5 py-1'}>
       {blocks.length > 1 && !compact && <DiffFileList blocks={blocks} onSelect={scrollToFile} />}
       {blocks.map((block) => {
         const file = block.file;
