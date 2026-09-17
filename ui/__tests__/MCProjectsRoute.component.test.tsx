@@ -482,6 +482,32 @@ test('commit inspector: no file list inside the diff box; Changed files rows scr
   } finally { await act(async () => root.unmount()); }
 });
 
+test('diff panel shows a floating back-to-top button after scrolling and hides it at the top', { concurrency: false }, async () => {
+  const window = installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const snapshot = structuredClone(fixture.data);
+  snapshot.fileDiffs['src/app.ts'] = MULTI_DIFF;
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'file', value: 'src/app.ts' }, snapshot })); await sleep(); });
+  try {
+    const diff = host.querySelector<HTMLElement>('[data-testid="context-diff"]');
+    assert.ok(diff);
+    assert.equal(host.querySelector('[data-testid="diff-scroll-top"]'), null, 'fab is hidden at the top');
+    // Simulate a real scroll event below the 300px threshold.
+    Object.defineProperty(diff, 'scrollTop', { configurable: true, get: () => 420 });
+    await act(async () => { diff.dispatchEvent(new window.Event('scroll', { bubbles: true }) as unknown as Event); await sleep(); });
+    const fab = host.querySelector<HTMLElement>('[data-testid="diff-scroll-top"]');
+    assert.ok(fab, 'fab appears after scrolling');
+    assert.equal(fab.getAttribute('aria-label'), 'Torna in cima al diff');
+    // Clicking it scrolls back to top (scrollTo no-ops in happy-dom) and hides it.
+    await act(async () => { fab.click(); await sleep(50); });
+    assert.ok(host.querySelector('[data-testid="diff-scroll-top"]'), 'fab stays visible until scrollTop actually returns near zero');
+    Object.defineProperty(diff, 'scrollTop', { configurable: true, get: () => 0 });
+    await act(async () => { diff.dispatchEvent(new window.Event('scroll', { bubbles: true }) as unknown as Event); await sleep(); });
+    assert.equal(host.querySelector('[data-testid="diff-scroll-top"]'), null, 'fab hides once back at the top');
+  } finally { await act(async () => root.unmount()); }
+});
+
 test('renders the selected branch as a terminal graph and routes commit selection to detail', { concurrency: false }, async () => {
   const snapshot = structuredClone(fixture.data);
   snapshot.branchLogs.main = [

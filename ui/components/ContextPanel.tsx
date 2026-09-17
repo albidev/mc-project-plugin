@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock3, FileText, GitCommitHorizontal, UserRound } from 'lucide-react';
+import { ArrowUp, Clock3, FileText, GitCommitHorizontal, UserRound } from 'lucide-react';
 import { Diff, Hunk, parseDiff } from 'react-diff-view';
 import type { CommitDetail, Focus, Snapshot } from '../types';
 import { GitLogTerminal } from './GitLogTerminal';
@@ -115,6 +115,7 @@ function HunklessSection({ block }: { block: DiffBlock }) {
 
 function DiffView({ diff, viewType = 'unified', onViewTypeChange, compact }: { diff: string; viewType?: 'unified' | 'split'; onViewTypeChange?: (view: 'unified' | 'split') => void; compact?: boolean }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const [showTop, setShowTop] = React.useState(false);
   let blocks: DiffBlock[] = [];
   try { blocks = splitDiffBlocks(diff); } catch { /* keep empty so the fallback shows raw text */ }
 
@@ -132,6 +133,11 @@ function DiffView({ diff, viewType = 'unified', onViewTypeChange, compact }: { d
     }
   };
 
+  const scrollToTop = () => {
+    const scroller = containerRef.current;
+    if (scroller && typeof scroller.scrollTo === 'function') scroller.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (blocks.length === 0) {
     return (
       <pre data-testid={compact ? undefined : 'context-diff'} tabIndex={compact ? undefined : 0} className={compact ? 'rdv-scope m-0 min-w-0 whitespace-pre-wrap break-all px-2 py-1 cp-11 cp-leading-tight text-text-muted' : 'rdv-scope m-0 min-w-max overflow-x-auto overflow-y-scroll whitespace-pre px-2 py-1 cp-11 cp-leading-tight text-text-muted'}>{diff}</pre>
@@ -139,8 +145,22 @@ function DiffView({ diff, viewType = 'unified', onViewTypeChange, compact }: { d
   }
 
   return (
-    <div ref={containerRef} data-testid={compact ? undefined : 'context-diff'} tabIndex={compact ? undefined : 0} className={compact ? 'rdv-scope min-w-0 max-w-full overflow-x-auto' : 'rdv-scope flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-auto overflow-y-scroll overscroll-contain bg-surface px-1.5 py-1'}>
+    <div ref={containerRef} data-testid={compact ? undefined : 'context-diff'} tabIndex={compact ? undefined : 0} onScroll={() => { if (!compact) { const el = containerRef.current; setShowTop(Boolean(el && el.scrollTop > 300)); } }} className={compact ? 'rdv-scope relative min-w-0 max-w-full overflow-x-auto' : 'rdv-scope relative flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-auto overflow-y-scroll overscroll-contain bg-surface px-1.5 py-1'}>
       {blocks.length > 1 && !compact && <DiffFileList blocks={blocks} onSelect={scrollToFile} />}
+      {!compact && showTop && (
+        <div
+          role="button"
+          tabIndex={0}
+          data-testid="diff-scroll-top"
+          aria-label="Torna in cima al diff"
+          title="Torna in cima"
+          onClick={scrollToTop}
+          onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); scrollToTop(); } }}
+          className="absolute bottom-3 right-3 z-30 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-border bg-surface-raised text-text-muted shadow-lg hover:bg-accent hover:text-surface hover:shadow-xl"
+        >
+          <ArrowUp size={16} />
+        </div>
+      )}
       {blocks.map((block) => {
         const file = block.file;
         const path = formatPath(file);
