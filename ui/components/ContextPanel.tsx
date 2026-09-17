@@ -187,7 +187,7 @@ function CommitDetailView({ detail, loading }: { detail?: unknown; loading?: boo
               <div key={file.path} className="flex items-center justify-between gap-3 px-1 py-1 cp-11"><span className="min-w-0 truncate font-mono text-text" title={file.path}>{file.path}</span><span className="shrink-0 font-mono cp-10 text-text-subtle">binary</span></div>
             ) : (
               <div key={file.path} role="button" tabIndex={0} data-testid="commit-file-link" data-file-path={file.path} onClick={() => scrollCommitToFile(file.path)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); scrollCommitToFile(file.path); } }} title={`Scroll to ${file.path} in the diff`} className="flex w-full cursor-pointer items-center justify-between gap-3 px-1 py-1 text-left font-mono cp-11 hover:bg-surface-raised">
-                <span className="min-w-0 truncate text-text">{file.path}</span>
+                <span className="min-w-0 truncate text-text transition-colors duration-100 hover:text-accent">{file.path}</span>
                 <span className="shrink-0 font-mono cp-10"><span className="text-positive">+{file.additions}</span><span className="ml-2 text-negative">-{file.deletions}</span></span>
               </div>
             ))}
