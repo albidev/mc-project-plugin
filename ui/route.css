@@ -218,20 +218,43 @@
 /* Commit timeline (sidebar accordion): row rhythm and breathing room.
  * Padding lives here as the single owner because Tailwind's `py-1`/`px-1.5`
  * lost against the host preflight before the plugin declared its layer order
- * (see ui/tailwind.css). These rules keep the row readable regardless. */
+ * (see ui/tailwind.css). These rules keep the row readable regardless.
+ * #17: no border-top separators — the vertical rhythm comes from generous
+ * padding plus hover/selection states; HISTORY owns the graph, so no rail
+ * or isolated dots in this list either. */
 #mc-project-sidebar .commit-row {
-  padding: 6px 8px;
-  border-radius: 0;
-  border-top: 1px solid var(--color-border-subtle);
-}
-#mc-project-sidebar .commit-row:first-child {
-  border-top: none;
+  padding: 5px 8px;
+  /* !important: the row is a <button> and the host's unlayered
+   * `button { border-radius: var(--control-radius) }` (12px) beats every
+   * @layer rule — same pattern as the overlay fix (fc26897). The mockup v4
+   * commits list uses a 6px radius. */
+  border-radius: 6px !important;
 }
 #mc-project-sidebar .commit-row:hover {
   background: color-mix(in srgb, var(--color-surface-sunken) 60%, transparent);
 }
-/* Second line: single compact metadata line, no wrap explosion. */
+/* Selected row: the accent wash (same language as mockup v4 selection),
+ * rounded, zero border — no hard pill, no outline. */
+#mc-project-sidebar .commit-row.selected {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+#mc-project-sidebar .commit-row.selected:hover {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+/* Subject: one line, ellipsized — keeps every row the same height even when
+ * the message is long (#17). Truncation happens at the column edge; the full
+ * message is available in HISTORY/COMMIT views. */
+#mc-project-sidebar .commit-subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Second line: hash + branch refs, no wrap explosion. */
 #mc-project-sidebar .commit-meta {
+  overflow: hidden;
+}
+/* Third line: relative date + author, muted, single ellipsized line. */
+#mc-project-sidebar .commit-byline {
   overflow: hidden;
 }
 #mc-project-sidebar .commit-ref {

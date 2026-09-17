@@ -23,7 +23,7 @@ function AccSection({ id, title, count, open, onToggle, children, trailing }: { 
  * unlayered `button { min-height: var(--touch-target) }` forced them to 44px
  * inside a 27px header: measured tabs 17px taller than the title, overflowing it.
  */
-export function SidebarSections({ snapshot, focus, onSelectFile, onSelectBranch, onSelectCommit, onPullRequest, onSwitch, onCreate, mutationMessage, mutationBusy }: { snapshot: Snapshot; focus: Focus | null; onSelectFile: (p: string) => void; onSelectBranch: (n: string) => void; onSelectCommit: (h: string) => void; onPullRequest: (n: number) => void; onSwitch?: (n: string) => void; onCreate?: (n: string) => void; mutationMessage?: string; mutationBusy?: boolean }) {
+export function SidebarSections({ snapshot, focus, onSelectFile, onSelectBranch, onSelectCommit, onPullRequest, onSwitch, onCreate, mutationMessage, mutationBusy, selectedCommitHash }: { snapshot: Snapshot; focus: Focus | null; onSelectFile: (p: string) => void; onSelectBranch: (n: string) => void; onSelectCommit: (h: string) => void; onPullRequest: (n: number) => void; onSwitch?: (n: string) => void; onCreate?: (n: string) => void; mutationMessage?: string; mutationBusy?: boolean; selectedCommitHash?: string }) {
   const [open, setOpen] = React.useState<Record<string, boolean>>({ files: true, branches: true, commits: false, issues: false, prs: false });
   const [branchTab, setBranchTab] = React.useState<'local' | 'remote'>('local');
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -46,7 +46,7 @@ export function SidebarSections({ snapshot, focus, onSelectFile, onSelectBranch,
       <BranchTopology local={snapshot.branches.local} remote={snapshot.branches.remote} onSelect={onSelectBranch} onSwitch={onSwitch} onCreate={onCreate} mutationMessage={mutationMessage} mutationBusy={mutationBusy} tab={branchTab} onTabChange={setBranchTab} createOpen={createOpen} onCreateOpenChange={setCreateOpen} />
     </AccSection>
     <AccSection id="commits" title="Commits" count={snapshot.commits?.length ?? 0} open={open.commits} onToggle={() => toggle('commits')}>
-      <CommitTimeline commits={snapshot.commits} onSelect={onSelectCommit} />
+      <CommitTimeline commits={snapshot.commits} onSelect={onSelectCommit} selectedCommitHash={selectedCommitHash} />
     </AccSection>
     <AccSection id="issues" title="Issues" count={snapshot.github.issues?.length ?? 0} open={open.issues} onToggle={() => toggle('issues')}>
       <GitHubFooter issues={snapshot.github.issues} pullRequests={[]} status={snapshot.github.status} onPullRequest={onPullRequest} bare />
