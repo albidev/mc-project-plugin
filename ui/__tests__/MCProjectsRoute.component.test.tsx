@@ -498,7 +498,7 @@ test('diff panel shows a floating back-to-top button after scrolling and hides i
     await act(async () => { diff.dispatchEvent(new window.Event('scroll', { bubbles: true }) as unknown as Event); await sleep(); });
     const fab = host.querySelector<HTMLElement>('[data-testid="diff-scroll-top"]');
     assert.ok(fab, 'fab appears after scrolling');
-    assert.equal(fab.getAttribute('aria-label'), 'Torna in cima al diff');
+    assert.equal(fab.getAttribute('aria-label'), 'Torna in cima');
     // Clicking it scrolls back to top (scrollTo no-ops in happy-dom) and hides it.
     await act(async () => { fab.click(); await sleep(50); });
     assert.ok(host.querySelector('[data-testid="diff-scroll-top"]'), 'fab stays visible until scrollTop actually returns near zero');
