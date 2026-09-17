@@ -133,6 +133,13 @@
 .status-D { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
 .status-R { background: color-mix(in srgb, var(--cyan) 16%, transparent); color: var(--cyan); }
 .status-U { background: color-mix(in srgb, #64748b 18%, transparent); color: #64748b; }
+/* Densità tipografica: valori senza token consolidati qui (sweep arbitrary values) */
+.cp-10 { font-size: 10px; }
+.cp-11 { font-size: 11px; }
+.cp-12 { font-size: 12px; }
+.cp-13 { font-size: 13px; }
+.cp-leading-tight { line-height: 1.05; }
+.cp-mono { font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 /* Branch topology (issue #10) */
 #mc-project-sidebar .branch-topology { padding: 2px 4px 4px; }
 #mc-project-sidebar .branch-tabs-row { display: flex; gap: 4px; margin-bottom: 4px; }

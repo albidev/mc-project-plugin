@@ -17,7 +17,7 @@ export function ProjectSelector({ active, projects, open, onToggle, onSelect }: 
   return <div ref={containerRef} className="relative min-w-0">
     <button type="button" aria-expanded={open} aria-controls="project-options" onClick={onToggle} className="flex min-h-9 w-full items-center gap-2 rounded-none text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent">
       <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-accent/15 text-accent"><FolderGit2 size={15} /></span>
-      <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-semibold leading-tight text-text">{active?.name ?? 'No project selected'}</span><span className="block truncate text-[11px] leading-tight text-text-muted">{active?.remote ?? active?.project_id ?? '—'}</span></span>
+      <span className="min-w-0 flex-1"><span className="block truncate cp-13 font-semibold leading-tight text-text">{active?.name ?? 'No project selected'}</span><span className="block truncate cp-11 leading-tight text-text-muted">{active?.remote ?? active?.project_id ?? '—'}</span></span>
       <ChevronDown size={14} className={`shrink-0 text-text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
     </button>
     {open && <div id="project-options" className="absolute left-0 right-0 top-full z-50 mt-1 w-[min(400px,calc(100vw-40px))] rounded-lg border border-border bg-surface-raised p-1 shadow-lg" role="listbox" aria-label="Other projects">

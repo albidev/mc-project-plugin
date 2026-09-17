@@ -31,10 +31,10 @@ export function SidebarSections({ snapshot, focus, onSelectFile, onSelectBranch,
       <CommitTimeline commits={snapshot.commits} onSelect={onSelectCommit} />
     </AccSection>
     <AccSection id="issues" title="Issues" count={snapshot.github.issues?.length ?? 0} open={open.issues} onToggle={() => toggle('issues')}>
-      <GitHubFooter issues={snapshot.github.issues} pullRequests={[]} status={snapshot.github.status} onPullRequest={onPullRequest} />
+      <GitHubFooter issues={snapshot.github.issues} pullRequests={[]} status={snapshot.github.status} onPullRequest={onPullRequest} bare />
     </AccSection>
     <AccSection id="prs" title="Pull requests" count={snapshot.github.pullRequests?.length ?? 0} open={open.prs} onToggle={() => toggle('prs')}>
-      <GitHubFooter issues={[]} pullRequests={snapshot.github.pullRequests} status={snapshot.github.status} onPullRequest={onPullRequest} />
+      <GitHubFooter issues={[]} pullRequests={snapshot.github.pullRequests} status={snapshot.github.status} onPullRequest={onPullRequest} bare />
     </AccSection>
   </div>;
 }

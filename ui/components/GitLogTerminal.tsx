@@ -81,7 +81,7 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
         data-testid="git-log-commit-row"
         data-commit-hash={meta.hash}
         aria-selected={isSelected}
-        className={`flex h-10 w-full min-w-0 items-center text-left font-mono text-[11px] ${isSelected ? 'text-text' : 'text-text-muted'}`}
+        className={`flex h-10 w-full min-w-0 items-center text-left font-mono cp-11 ${isSelected ? 'text-text' : 'text-text-muted'}`}
         style={{
           height: LIBRARY_ROW_HEIGHT,
           minHeight: LIBRARY_ROW_HEIGHT,
@@ -106,10 +106,10 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
         <span className="flex min-w-0 items-center gap-2 overflow-hidden">
           <span className="flex shrink-0 gap-1 overflow-hidden">
             {meta.refs.map((ref) => (
-              <span key={ref} data-testid="git-log-ref" className={`max-w-[24ch] truncate rounded border px-1 py-px text-[10px] leading-tight ${refClass(ref)}`} title={ref}>{ref}</span>
+              <span key={ref} data-testid="git-log-ref" className={`max-w-[24ch] truncate rounded border px-1 py-px cp-10 leading-tight ${refClass(ref)}`} title={ref}>{ref}</span>
             ))}
           </span>
-          <span className="min-w-0 truncate text-[12px] font-medium text-text">{meta.message}</span>
+          <span className="min-w-0 truncate cp-12 font-medium text-text">{meta.message}</span>
         </span>
         <span className="hidden min-w-0 truncate text-text-subtle xl:block" title={meta.author?.name ?? ''}>{meta.author?.name ?? ''}</span>
         <time className="min-w-0 truncate text-right text-text-subtle" dateTime={meta.committerDate} title={meta.committerDate}>{relativeDate(meta.committerDate)}<span className="sr-only"> {meta.committerDate} {meta.author?.name ?? ''}</span></time>
@@ -120,7 +120,7 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
   };
 
   return (
-    <section data-testid="git-log-terminal" aria-label={`Git log ${branch}`} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-sunken text-[11px] text-text-muted md:h-full">
+    <section data-testid="git-log-terminal" aria-label={`Git log ${branch}`} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-sunken cp-11 text-text-muted md:h-full">
       <div data-testid="git-log-scroll" tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-auto bg-surface-sunken">
         {entries.length === 0 ? (
           <div role="status" className="px-3 py-4 text-text-muted">No commits available for this branch.</div>
