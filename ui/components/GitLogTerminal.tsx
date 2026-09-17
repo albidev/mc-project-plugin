@@ -81,7 +81,7 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
         data-testid="git-log-commit-row"
         data-commit-hash={meta.hash}
         aria-selected={isSelected}
-        className={`flex h-10 w-full min-w-0 items-center text-left font-mono text-[11px] ${isSelected ? 'text-white' : 'text-slate-300'}`}
+        className={`flex h-10 w-full min-w-0 items-center text-left font-mono text-[11px] ${isSelected ? 'text-text' : 'text-text-muted'}`}
         style={{
           height: LIBRARY_ROW_HEIGHT,
           minHeight: LIBRARY_ROW_HEIGHT,
@@ -90,7 +90,7 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
         }}
       >
         <div
-          className="grid h-6 min-h-6 w-full min-w-0 grid-cols-[7ch_minmax(0,1fr)_14ch_14ch] items-center gap-1.5 hover:bg-[#111923]"
+          className="grid h-6 min-h-6 w-full min-w-0 grid-cols-[7ch_minmax(0,1fr)_14ch_14ch] items-center gap-1.5 hover:bg-surface-sunken/70"
           style={{
             height: 24,
             minHeight: 24,
@@ -109,10 +109,10 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
               <span key={ref} data-testid="git-log-ref" className={`max-w-[24ch] truncate rounded border px-1 py-px text-[10px] leading-tight ${refClass(ref)}`} title={ref}>{ref}</span>
             ))}
           </span>
-          <span className="min-w-0 truncate text-[12px] font-medium text-slate-100">{meta.message}</span>
+          <span className="min-w-0 truncate text-[12px] font-medium text-text">{meta.message}</span>
         </span>
-        <span className="hidden min-w-0 truncate text-fuchsia-300 xl:block" title={meta.author?.name ?? ''}>{meta.author?.name ?? ''}</span>
-        <time className="min-w-0 truncate text-right text-slate-500" dateTime={meta.committerDate} title={meta.committerDate}>{relativeDate(meta.committerDate)}<span className="sr-only"> {meta.committerDate} {meta.author?.name ?? ''}</span></time>
+        <span className="hidden min-w-0 truncate text-text-subtle xl:block" title={meta.author?.name ?? ''}>{meta.author?.name ?? ''}</span>
+        <time className="min-w-0 truncate text-right text-text-subtle" dateTime={meta.committerDate} title={meta.committerDate}>{relativeDate(meta.committerDate)}<span className="sr-only"> {meta.committerDate} {meta.author?.name ?? ''}</span></time>
           <span className="sr-only">{meta.hash} {meta.parents.length > 1 ? 'merge: true' : ''} {meta.parents.length ? `Parents: ${meta.parents.join(', ')}` : 'Parents: (root)'}</span>
         </div>
       </div>
@@ -120,8 +120,8 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
   };
 
   return (
-    <section data-testid="git-log-terminal" aria-label={`Git log ${branch}`} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#08090c] text-[11px] text-slate-300 md:h-full">
-      <div data-testid="git-log-scroll" tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-auto bg-[#08090c]">
+    <section data-testid="git-log-terminal" aria-label={`Git log ${branch}`} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-sunken text-[11px] text-text-muted md:h-full">
+      <div data-testid="git-log-scroll" tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-auto bg-surface-sunken">
         {entries.length === 0 ? (
           <div role="status" className="px-3 py-4 text-text-muted">No commits available for this branch.</div>
         ) : (

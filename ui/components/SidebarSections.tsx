@@ -7,7 +7,7 @@ import { CommitTimeline } from './CommitTimeline';
 import { GitHubFooter } from './GitHubFooter';
 
 function AccSection({ id, title, count, open, onToggle, children, trailing }: { id: string; title: string; count?: number; open: boolean; onToggle: () => void; children: React.ReactNode; trailing?: React.ReactNode }) {
-  return <div className="acc-section" data-acc-section={id}>
+  return <div className={`acc-section ${open ? 'open' : ''}`} data-acc-section={id}>
     <div role="button" tabIndex={0} aria-expanded={open} aria-controls={`${id}-body`} className="acc-head" onClick={(e) => { if ((e.target as HTMLElement).closest('.tabs')) return; onToggle(); }} onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !(e.target as HTMLElement).closest('.tabs')) { e.preventDefault(); onToggle(); } }}>
       <span className="chev"><ChevronRight size={12} /></span>
       <span className="label">{title}</span>

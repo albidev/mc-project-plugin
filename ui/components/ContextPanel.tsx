@@ -52,27 +52,27 @@ function DiffView({ diff, surface = true }: { diff: string; surface?: boolean })
 }
 
 function CommitDetailView({ detail, loading }: { detail?: unknown; loading?: boolean }) {
-  if (loading) return <div data-testid="context-commit-inspector" className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#08090c] p-3 font-mono text-xs text-text-muted" role="status">Loading commit detail…</div>;
+  if (loading) return <div data-testid="context-commit-inspector" className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-sunken p-3 font-mono text-xs text-text-muted" role="status">Loading commit detail…</div>;
   if (!detail || typeof detail !== 'object') return (
-    <div data-testid="context-commit-inspector" className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 overflow-hidden bg-[#08090c] p-3 text-center text-text-muted">
+    <div data-testid="context-commit-inspector" className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 overflow-hidden bg-surface-sunken p-3 text-center text-text-muted">
       <GitCommitHorizontal size={22} className="text-accent" />
       <p className="text-xs">Select a commit to inspect its details.</p>
     </div>
   );
   const commit = detail as CommitDetail;
   return (
-    <div data-testid="context-commit-inspector" className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#08090c]">
+    <div data-testid="context-commit-inspector" className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-sunken">
       <div data-testid="context-commit-scroll" tabIndex={0} className="min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-3 py-2">
-        <div data-testid="context-commit-detail"><h3 className="break-words text-sm font-semibold leading-snug text-text">{commit.subject}</h3><div className="mt-1 grid grid-cols-1 gap-0.5 text-[11px] text-text-muted"><span className="inline-flex items-center gap-1.5"><UserRound size={12} className="text-fuchsia-300" />{commit.author}</span><span className="inline-flex items-center gap-1.5"><Clock3 size={12} className="text-sky-300" />{commit.date}</span><span className="break-all font-mono text-[10px] text-text-subtle">{commit.hash}</span></div></div>
+        <div data-testid="context-commit-detail"><h3 className="break-words text-sm font-semibold leading-snug text-text">{commit.subject}</h3><div className="mt-1 grid grid-cols-1 gap-0.5 text-[11px] text-text-muted"><span className="inline-flex items-center gap-1.5"><UserRound size={12} className="text-text-subtle" />{commit.author}</span><span className="inline-flex items-center gap-1.5"><Clock3 size={12} className="text-text-subtle" />{commit.date}</span><span className="break-all font-mono text-[10px] text-text-subtle">{commit.hash}</span></div></div>
         <section>
           <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted"><FileText size={12} />Changed files <span className="text-text-subtle">{commit.files.length}</span></div>
-          <div className="divide-y divide-[#1a1c22]">
+          <div className="divide-y divide-border-subtle">
             {commit.files.length === 0 ? <p className="px-1 py-2 text-xs text-text-muted">No file changes reported.</p> : commit.files.map((file) => (
-              <div key={file.path} className="flex items-center justify-between gap-3 px-1 py-1 text-[11px]"><span className="min-w-0 truncate font-mono text-text" title={file.path}>{file.path}</span>{file.binary ? <span className="shrink-0 font-mono text-[10px] text-text-subtle">binary</span> : <span className="shrink-0 font-mono text-[10px]"><span className="text-[#00e676]">+{file.additions}</span><span className="ml-2 text-[#ff5570]">-{file.deletions}</span></span>}</div>
+              <div key={file.path} className="flex items-center justify-between gap-3 px-1 py-1 text-[11px]"><span className="min-w-0 truncate font-mono text-text" title={file.path}>{file.path}</span>{file.binary ? <span className="shrink-0 font-mono text-[10px] text-text-subtle">binary</span> : <span className="shrink-0 font-mono text-[10px]"><span className="text-positive">+{file.additions}</span><span className="ml-2 text-negative">-{file.deletions}</span></span>}</div>
             ))}
           </div>
         </section>
-        {commit.diff && <details className="overflow-hidden" open><summary className="cursor-pointer border-y border-[#1a1c22] px-1 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">Diff preview</summary><DiffView diff={commit.diff} surface={false} /></details>}
+        {commit.diff && <details className="overflow-hidden" open><summary className="cursor-pointer border-y border-border-subtle px-1 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">Diff preview</summary><DiffView diff={commit.diff} surface={false} /></details>}
       </div>
     </div>
   );
