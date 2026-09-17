@@ -24,7 +24,7 @@
 - Use the configured project registry; never accept arbitrary paths or commands from the browser.
 - Separate read-only Git/GitHub operations from branch mutations.
 - Mutations require strict validation, bounded execution, per-project locking, and read-back verification.
-- Preserve the accepted UI baseline: Files tree, Local/Remote branch tabs, contextual center panel, Issue/PR footer.
+- Preserve the accepted UI baseline (design target congelato `mockup-projects-v4.html`, 17/09/2026): Files tree compatta, Local/Remote branch tabs senza pill dura, breadcrumb (`DIFF/HISTORY/COMMIT`) come header della colonna centrale con Last updated + Refresh a destra, sidebar accordion flat, Issues e Pull requests come accordion separati nella sidebar (non più footer nella colonna centrale), colonna centrale flat senza card arrotondate.
 
 ## Verification
 

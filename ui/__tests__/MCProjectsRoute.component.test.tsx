@@ -195,19 +195,19 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
     assert.match(leftColumn.className, /md:overflow-y-auto/);
     assert.match(route.className, /md:overflow-hidden/);
     assert.match(host.querySelector<HTMLElement>('[data-testid="context-diff"]')?.className ?? '', /overflow-y-scroll/);
-    assert.equal(host.querySelector<HTMLElement>('[data-testid="branch-switch"]')?.getAttribute('disabled'), '');
+    assert.equal(host.querySelector('[data-testid="branch-switch"]'), null, 'mutation-section switch was removed');
+    assert.equal(host.querySelector('[data-testid="mutation-section"]'), null, 'mutation-section was removed');
     const treeItems = [...host.querySelectorAll<HTMLElement>('[role="treeitem"]')];
     assert.equal(treeItems.length, 2);
     for (const item of treeItems) {
-      assert.ok(item.getBoundingClientRect().height >= 44, `treeitem ${item.dataset.treePath} must render a 44px hit area`);
-      assert.equal(item.dataset.hitAreaMin, '44');
+      assert.ok(item.getBoundingClientRect().height >= 24, `treeitem ${item.dataset.treePath} must render a 24px hit area`);
+      assert.equal(item.dataset.hitAreaMin, '24');
     }
-    const mutationControls = [...host.querySelectorAll<HTMLElement>('[data-testid="mutation-section"] button')];
-    assert.deepEqual(mutationControls.map((control) => control.textContent), ['Switch', 'Create']);
-    for (const control of mutationControls) {
-      assert.ok(control.getBoundingClientRect().height >= 44, `${control.textContent} must render a 44px hit area`);
-      assert.equal(control.dataset.hitAreaMin, '44');
-    }
+
+    // branch rows still expose contextual mutation affordances without the old mutation block
+    const branchCreate = host.querySelector<HTMLElement>('.branch-create');
+    assert.ok(branchCreate, 'contextual create-from-current row exists');
+    assert.equal(host.querySelector('[data-testid="mutation-section"]'), null);
 
     const folder = host.querySelector<HTMLElement>('[data-tree-path="src"]'); assert.ok(folder);
     await act(async () => { folder.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })); await sleep(); });
@@ -227,7 +227,7 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
     assert.match(text(host), /origin\/main/);
     assert.match(text(host), /DIFF/);
     await click(host, 'button[aria-pressed="false"]');
-    await click(host, 'button[data-branch-name="main"]');
+    await click(host, '[data-branch-name="main"]');
     assert.match(text(host), /HISTORY/);
     assert.match(text(host), /Initial/);
 
@@ -260,21 +260,26 @@ test('renders mobile order and verifies enabled mutation POST plus snapshot read
   window.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes('/branch/switch')) { mutationCalls += 1; assert.equal(init?.method, 'POST'); return response({ verified: true, generation: 1, project_id: 'demo', branch: 'feature/test', tracking: null, status: 'clean', created: false }); }
+    if (url.includes('/branch/create')) { mutationCalls += 1; assert.equal(init?.method, 'POST'); return response({ verified: true, generation: 1, project_id: 'demo', branch: 'feature/test', tracking: null, status: 'clean', created: true }); }
     return originalFetch(input, init);
   };
   globalThis.fetch = window.fetch;
   try {
     const route = host.querySelector('[data-testid="mc-projects-route"]'); assert.ok(route);
-    const sections = ['files-section', 'branches-section', 'github-section', 'mutation-section', 'context-section'];
-    assert.deepEqual(sections.map((id) => Boolean(host.querySelector(`[data-testid="${id}"]`))), [true, true, true, true, true]);
+    const sections = ['files-section', 'branches-section', 'github-section', 'context-section'];
+    assert.deepEqual(sections.map((id) => Boolean(host.querySelector(`[data-testid="${id}"]`))), [true, true, true, true]);
+    assert.equal(host.querySelector('[data-testid="mutation-section"]'), null);
+    assert.equal(host.querySelector('[data-testid="branch-switch"]'), null);
     const positions = sections.map((id) => [...host.querySelectorAll('[data-testid]')].findIndex((node) => node.getAttribute('data-testid') === id));
     assert.deepEqual([...positions].sort((a, b) => a - b), positions);
+    // contextual create-from-current modal exposes the branch name input
+    const createButton = host.querySelector<HTMLButtonElement>('.branch-create'); assert.ok(createButton);
+    await act(async () => { createButton.click(); await sleep(); });
     const input = host.querySelector<HTMLInputElement>('input[aria-label="Branch name"]'); assert.ok(input);
     await act(async () => { Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(input, 'feature/test'); input.dispatchEvent(new window.Event('input', { bubbles: true })); input.dispatchEvent(new window.Event('change', { bubbles: true })); await sleep(); });
     assert.equal(input.value, 'feature/test');
-    const switchButton = host.querySelector<HTMLButtonElement>('[data-testid="branch-switch"]'); assert.ok(switchButton);
-    assert.equal(switchButton.disabled, false);
-    await act(async () => { switchButton.click(); await sleep(100); });
+    const confirmButton = host.querySelector<HTMLButtonElement>('.branch-create-confirm'); assert.ok(confirmButton);
+    await act(async () => { confirmButton.click(); await sleep(100); });
     assert.equal(mutationCalls, 1);
     assert.match(text(host), /Read-back confirmed/);
     for (const item of host.querySelectorAll<HTMLElement>('[data-testid="files-section"], [data-testid="branches-section"]')) assert.ok(item.className.includes('min-w-0'));
@@ -291,7 +296,7 @@ test('renders the selected branch as a terminal graph and routes commit selectio
   snapshot.capabilities.branchLogs.value = snapshot.branchLogs;
   const { host, root } = await mountedRoute(snapshot);
   try {
-    await click(host, 'button[data-branch-name="main"]');
+    await click(host, '[data-branch-name="main"]');
     assert.ok(host.querySelector('[data-testid="git-log-terminal"]'));
     assert.equal(host.querySelectorAll('[data-testid="git-log-commit-row"]').length, 3);
     assert.ok(host.querySelector('[data-testid="git-log-ref"]'));
@@ -319,7 +324,7 @@ test('renders capability notice and retains last-good DOM after a failed refresh
   try {
     assert.match(text(host), /GitHub: stale; last-known-good data shown/);
     assert.match(text(host), /diff --git a\/src\/app\.ts/);
-    await click(host, 'header button');
+    await click(host, '[data-testid="route-refresh"]');
     await act(async () => { await sleep(100); });
     assert.match(text(host), /Refresh unavailable; showing last-known-good data/);
     assert.match(text(host), /diff --git a\/src\/app\.ts/);

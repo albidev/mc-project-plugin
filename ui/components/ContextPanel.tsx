@@ -16,6 +16,23 @@ function classifyDiffLine(line: string): DiffLineType {
 
 const MONO = '"JetBrains Mono", "Cascadia Code", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 
+function relativeTime(iso: string | undefined): string {
+  if (!iso) return '';
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return iso;
+  const diff = Date.now() - t;
+  const abs = Math.abs(diff);
+  const minutes = Math.round(abs / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes === 1) return '1 min ago';
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours === 1) return '1 hour ago';
+  if (hours < 24) return `${hours} hours ago`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? '1 day ago' : `${days} days ago`;
+}
+
 function DiffView({ diff, surface = true }: { diff: string; surface?: boolean }) {
   if (!surface) {
     return (
@@ -68,18 +85,21 @@ function CommitDetailView({ detail, loading }: { detail?: unknown; loading?: boo
   );
 }
 
-export function ContextBreadcrumb({ label, branch, commitMessage, commitCount, onBranchClick }: { label: 'DIFF' | 'HISTORY' | 'COMMIT' | 'CONTEXT'; branch: string; commitMessage?: string; commitCount?: number; onBranchClick?: () => void }) {
-  return <div data-testid="context-breadcrumb" className="flex h-8 min-h-8 max-h-8 shrink-0 min-w-0 items-center gap-1.5 overflow-hidden border-b border-[#3a4152] bg-[#1e2330] px-2 font-mono text-[12px] leading-none">
-    <span className="shrink-0 font-semibold tracking-[0.1em] text-[#b794f6]">{label}</span><span className="text-slate-500">/</span>
+export function ContextBreadcrumb({ label, branch, commitMessage, commitCount, onBranchClick, lastUpdated, onRefresh, fileCount }: { label: 'DIFF' | 'HISTORY' | 'COMMIT' | 'CONTEXT'; branch: string; commitMessage?: string; commitCount?: number; onBranchClick?: () => void; lastUpdated?: string; onRefresh?: () => void; fileCount?: number }) {
+  return <div data-testid="context-breadcrumb" className="flex h-8 min-h-8 max-h-8 shrink-0 min-w-0 items-center gap-2 overflow-hidden border-b border-border-subtle px-2 font-mono text-[11px] leading-none">
+    <span className="shrink-0 font-semibold tracking-[0.1em] text-accent">{label}</span><span className="text-text-subtle">/</span>
     {onBranchClick
-      ? <span data-testid="context-breadcrumb-branch" role="link" tabIndex={0} onClick={onBranchClick} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onBranchClick(); } }} className="min-w-0 cursor-pointer truncate text-left text-slate-300 hover:text-white hover:underline focus-visible:underline" title={branch}>{branch}</span>
-      : <span className="min-w-0 truncate text-slate-300" title={branch}>{branch}</span>}
-    {commitMessage && <><span className="text-slate-600">/</span><span data-testid="context-breadcrumb-message" className="min-w-0 truncate text-slate-400" title={commitMessage}>{commitMessage}</span></>}
-    {commitCount !== undefined && <span className="ml-auto shrink-0 text-slate-500">{commitCount} commits</span>}
+      ? <span data-testid="context-breadcrumb-branch" role="link" tabIndex={0} onClick={onBranchClick} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onBranchClick(); } }} className="min-w-0 cursor-pointer truncate text-left text-text-muted hover:text-text hover:underline focus-visible:underline" title={branch}>{branch}</span>
+      : <span className="min-w-0 truncate text-text-muted" title={branch}>{branch}</span>}
+    {commitMessage && <><span className="text-text-subtle">/</span><span data-testid="context-breadcrumb-message" className="min-w-0 truncate text-text-muted" title={commitMessage}>{commitMessage}</span></>}
+    {(commitCount !== undefined || fileCount !== undefined) && <span className="ml-auto shrink-0 text-text-subtle">{commitCount !== undefined ? `${commitCount} commits` : fileCount !== undefined ? `${fileCount} file${fileCount === 1 ? '' : 's'}` : ''}</span>}
+    <span className="shrink-0 rounded-md border border-border px-1.5 py-0.5 text-[10px] text-text-muted">Unified</span>
+    {lastUpdated && <span className="shrink-0 font-sans text-[11px] text-text-subtle">Last updated {lastUpdated}</span>}
+    {onRefresh && <button data-testid="route-refresh" type="button" onClick={onRefresh} className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] text-text-muted hover:text-text">↻ Refresh</button>}
   </div>;
 }
 
-export function ContextPanel({ focus, snapshot, detail, loading, selectedCommitHash, onSelectCommit }: { focus: Focus | null; snapshot: Snapshot; detail?: unknown; loading?: boolean; selectedCommitHash?: string; onSelectCommit?: (hash?: string) => void }) {
+export function ContextPanel({ focus, snapshot, detail, loading, selectedCommitHash, onSelectCommit, lastUpdated, onRefresh, fileCount }: { focus: Focus | null; snapshot: Snapshot; detail?: unknown; loading?: boolean; selectedCommitHash?: string; onSelectCommit?: (hash?: string) => void; lastUpdated?: string; onRefresh?: () => void; fileCount?: number }) {
   const isFile = focus?.kind === 'file';
   const isBranch = focus?.kind === 'branch';
   const isCommit = focus?.kind === 'commit';
@@ -102,10 +122,10 @@ export function ContextPanel({ focus, snapshot, detail, loading, selectedCommitH
   const logEmpty = branchEntries === undefined || branchEntries.length === 0;
 
   return (
-    <section data-testid="context-section" className="flex min-h-[520px] min-w-0 flex-col overflow-hidden bg-[#08090c] md:h-full md:min-h-0">
-      <ContextBreadcrumb label={label} branch={breadcrumbBranch} commitMessage={breadcrumbMessage} commitCount={label === 'HISTORY' ? branchEntries?.length : undefined} onBranchClick={branchCommitDetail ? () => onSelectCommit?.(undefined) : undefined} />
+    <section data-testid="context-section" className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface md:h-full">
+      <ContextBreadcrumb label={label} branch={breadcrumbBranch} commitMessage={breadcrumbMessage} commitCount={label === 'HISTORY' ? branchEntries?.length : undefined} onBranchClick={branchCommitDetail ? () => onSelectCommit?.(undefined) : undefined} lastUpdated={lastUpdated ? relativeTime(lastUpdated) : undefined} onRefresh={onRefresh} fileCount={fileCount} />
 
-      <div data-testid="context-body" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#08090c]">
+      <div data-testid="context-body" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface">
         {isCommit || branchCommitDetail
           ? <CommitDetailView detail={detail} loading={loading} />
           : isFile && typeof contextual === 'string'
