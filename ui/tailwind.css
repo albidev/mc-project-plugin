@@ -12,6 +12,30 @@
  * resets. Tokens are mirrored via @theme inline so plugin classes resolve to the
  * same CSS variables the host theme exposes (--color-text, --color-accent, ...).
  */
+
+/* Layer ORDER is declared once and explicitly.
+ *
+ * Layer order is decided by a layer's FIRST appearance in the document. The host
+ * emits its layers after this entry (`theme`, `base`, `components`, `utilities`
+ * from src/styles.css), so without this statement `base` is declared AFTER
+ * `utilities` and wins: the host preflight
+ *   @layer base { *, ::after, ::before, ::backdrop { padding: 0; margin: 0; border: 0 } }
+ * computes 0px on every plugin utility that sets padding/margin/border, even
+ * though the utility rule is generated and the element matches it (measured:
+ * `.py-1 { padding-block: var(--spacing) }` present, `--spacing: .25rem`
+ * resolved, element matches `.py-1`, computed padding 0px).
+ *
+ * Naming `base` and `components` before `utilities` re-establishes the intended
+ * Tailwind order (theme < base < components < utilities), so utilities win over
+ * the preflight in both bundles and the arbitrary value sweep stays honest.
+ * Naming a layer does not create it: `@layer theme` and `@layer utilities` are
+ * imported below with their real content.
+ *
+ * This statement MUST be the first rule of the file: Tailwind emits it in place,
+ * so placing it after the imports left `utilities` declared first and the fix
+ * silently did nothing (measured: order stayed utilities -> base, padding 0px). */
+@layer theme, base, components, utilities;
+
 @import "tailwindcss/theme" layer(theme);
 @import "tailwindcss/utilities" layer(utilities);
 

@@ -28,6 +28,14 @@
 #mc-project-sidebar .sidebar-acc .acc-section {
   min-width: 0;
 }
+/* Keep every accordion section header clear of the host's 44px touch target.
+ * The host declares `button, a, ... { min-height: var(--touch-target) }`
+ * UNLAYERED, so it beats any @layer rule; lowering `--touch-target` on the
+ * header subtree is the only way the 27px rhythm survives. Scoped here, never
+ * on :root — the plugin must not restyle the host. */
+#mc-project-sidebar .acc-head {
+  --touch-target: 22px;
+}
 #mc-project-sidebar .acc-section {
   border-bottom: 1px solid var(--color-border);
 }
@@ -207,34 +215,143 @@
   padding: 2px 7px;
 }
 #project-options .proj-card .pcheck { color: var(--color-accent); display: inline-flex; }
-/* Branch topology (issue #10) */
-#mc-project-sidebar .branch-topology { padding: 2px 4px 4px; }
-#mc-project-sidebar .branch-tab { background: transparent; border: none; color: var(--color-text-subtle); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 6px; cursor: pointer; transition: background .12s, color .12s; }
-#mc-project-sidebar .branch-tab.active { background: color-mix(in srgb, var(--color-accent) 15%, transparent); color: var(--color-accent); }
-#mc-project-sidebar .branch-tab:hover { background: rgba(255,255,255,.04); color: var(--color-text-muted); }
-#mc-project-sidebar .branch-create-row { margin-bottom: 4px; }
-#mc-project-sidebar .branch-create { display: inline-flex; align-items: center; gap: 4px; background: transparent; border: 1px solid var(--color-border); color: var(--color-text-muted); font-size: 10px; padding: 2px 7px; border-radius: 6px; cursor: pointer; }
-#mc-project-sidebar .branch-create:hover { color: var(--color-text); }
+/* Commit timeline (sidebar accordion): row rhythm and breathing room.
+ * Padding lives here as the single owner because Tailwind's `py-1`/`px-1.5`
+ * lost against the host preflight before the plugin declared its layer order
+ * (see ui/tailwind.css). These rules keep the row readable regardless. */
+#mc-project-sidebar .commit-row {
+  padding: 6px 8px;
+  border-radius: 0;
+  border-top: 1px solid var(--color-border-subtle);
+}
+#mc-project-sidebar .commit-row:first-child {
+  border-top: none;
+}
+#mc-project-sidebar .commit-row:hover {
+  background: color-mix(in srgb, var(--color-surface-sunken) 60%, transparent);
+}
+/* Second line: single compact metadata line, no wrap explosion. */
+#mc-project-sidebar .commit-meta {
+  overflow: hidden;
+}
+#mc-project-sidebar .commit-ref {
+  flex-shrink: 0;
+}
+
+/* Branch topology (issue #10 + row redesign).
+ * No horizontal padding: the icon bar is a SIBLING of this container, so any
+ * inline padding here shifted the branch rows 4px right of the bar, the dots and
+ * the switch control (measured 284 vs 280 on the left, 491 vs 495 on the right). */
+#mc-project-sidebar .branch-topology { padding: 2px 0 4px; }
+/* Custom properties are scoped to the branch body and never set on :root: the
+ * plugin must not restyle the host. `--mc-touch` lowers the host's unlayered
+ * `button { min-height: var(--touch-target) }` (44px) for the small icon
+ * controls only. A `height` rule cannot win: the host declaration is unlayered
+ * and therefore beats every @layer rule.
+ * It lives on `.acc-body` (the common ancestor) because the icon bar and the
+ * branch list are SIBLINGS — defining it on `.branch-topology` left the icon bar
+ * at `min-height: auto` (measured 14px tall instead of 22px). */
+#mc-project-sidebar .acc-body {
+  --mc-touch: 22px;
+  /* One gutter shared by the icon bar and the branch rows: they are siblings,
+   * so the padding must be identical on both or the dots stop aligning with the
+   * bar. Without it the current dot sits flush on the hover background edge. */
+  --mc-gutter: 8px;
+}
+/* Local / Remote / Create icon bar, inside the accordion body.
+ * One left rhythm for the whole branch widget: the bar, the rows and the row
+ * content all start at the same x (they used to sit at 272 / 276 / 284 — three
+ * different lefts — and the bar ended at 495 while the rows ended at 491). */
+#mc-project-sidebar .branch-iconbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  padding: 4px var(--mc-gutter);
+}
+#mc-project-sidebar .branch-icon-group { display: flex; align-items: center; gap: 2px; }
+#mc-project-sidebar .branch-icon-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: var(--mc-touch) !important;
+  min-width: var(--mc-touch) !important;
+  height: var(--mc-touch) !important;
+  padding: 0 6px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--color-text-subtle);
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+#mc-project-sidebar .branch-icon-tab:hover { background: rgba(255,255,255,.04); color: var(--color-text-muted); }
+#mc-project-sidebar .branch-icon-tab.active { background: color-mix(in srgb, var(--color-accent) 15%, transparent); color: var(--color-accent); }
+#mc-project-sidebar .branch-icon-tab:focus-visible { outline: 1px solid var(--color-accent); outline-offset: -1px; }
+#mc-project-sidebar .branch-icon-count { font-size: 10px; opacity: .85; }
+/* The create action is a real action, not a passive view toggle: give it a
+ * border and text-coloured ink so it reads as clickable next to the two muted
+ * view toggles (it used to be identical to an inactive tab: transparent
+ * background, muted grey, no border). */
+#mc-project-sidebar .branch-icon-action {
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+#mc-project-sidebar .branch-icon-action:hover {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+/* Create modal */
 #mc-project-sidebar .branch-create-modal { display: flex; gap: 4px; margin-bottom: 4px; }
-#mc-project-sidebar .branch-create-input { min-width: 0; flex: 1; background: var(--raised); border: 1px solid var(--color-border); color: var(--color-text); font-size: 10px; padding: 3px 6px; border-radius: 6px; }
-#mc-project-sidebar .branch-create-confirm { background: color-mix(in srgb, var(--color-accent) 15%, transparent); border: none; color: var(--color-accent); font-size: 10px; padding: 3px 8px; border-radius: 6px; cursor: pointer; }
+#mc-project-sidebar .branch-create-input { min-width: 0; flex: 1; background: var(--raised); border: 1px solid var(--color-border); color: var(--color-text); font-size: 10px; padding: 3px 6px; }
+#mc-project-sidebar .branch-create-confirm { background: color-mix(in srgb, var(--color-accent) 15%, transparent); border: none; color: var(--color-accent); font-size: 10px; padding: 3px 8px; cursor: pointer; min-height: var(--mc-touch) !important; }
 #mc-project-sidebar .branch-create-confirm:disabled { opacity: .5; cursor: default; }
-#mc-project-sidebar .branch-row { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-radius: 6px; font-size: 11px; cursor: pointer; }
+/* Branch row: current dot far left (vertically centred), name + sync state
+ * stacked beside it, switch control on the right. `align-items: center` centres
+ * the dot against the two-line text block; `stretch` would instead make the row
+ * inherit the host's 44px touch target from `.bswitch` (that produced the old
+ * 23px vs 50px row-height mismatch). */
+#mc-project-sidebar .branch-row { display: flex; align-items: center; gap: 10px; padding: 8px var(--mc-gutter); border-radius: 6px; cursor: pointer; }
 #mc-project-sidebar .branch-row:hover { background: rgba(255,255,255,.03); }
-#mc-project-sidebar .branch-row .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-#mc-project-sidebar .branch-row .dot-synced { background: var(--color-positive); }
-#mc-project-sidebar .branch-row .dot-ahead { background: var(--color-accent); }
-#mc-project-sidebar .branch-row .dot-behind { background: var(--color-warning); }
-#mc-project-sidebar .branch-row .dot-noup { background: #3d4556; }
-#mc-project-sidebar .branch-row .bname { font-family: var(--mono); font-size: 11px; color: var(--color-text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#mc-project-sidebar .branch-row .bcurrent { font-size: 9px; font-weight: 700; text-transform: uppercase; color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 13%, transparent); border-radius: 4px; padding: 0 4px; flex-shrink: 0; }
-#mc-project-sidebar .branch-row .bstate { margin-left: auto; font-size: 10px; font-weight: 600; flex-shrink: 0; }
+#mc-project-sidebar .branch-row .branch-main { display: flex; flex-direction: column; min-width: 0; gap: 3px; flex: 1; }
+#mc-project-sidebar .branch-row .bname {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.25;
+  color: var(--color-text);
+  /* Two-line clamp instead of a 29%-wide ellipsis: a 157px branch name keeps
+   * 46px of visible text with truncate; wrapped it stays readable. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+#mc-project-sidebar .branch-row .bstate { font-size: 10px; font-weight: 600; line-height: 1.3; }
 #mc-project-sidebar .branch-row .bstate.state-synced { color: var(--color-positive); }
 #mc-project-sidebar .branch-row .bstate.state-ahead { color: var(--color-accent); }
 #mc-project-sidebar .branch-row .bstate.state-behind { color: var(--color-warning); }
 #mc-project-sidebar .branch-row .bstate.state-noup { color: var(--color-text-subtle); font-weight: 400; }
-#mc-project-sidebar .branch-row .bswitch { background: transparent; border: none; color: var(--color-text-subtle); cursor: pointer; padding: 2px; border-radius: 4px; flex-shrink: 0; display: inline-flex; align-items: center; }
+#mc-project-sidebar .branch-row .branch-side { display: none; }
+/* Far-left current marker: green when the branch is checked out, muted otherwise.
+ * `align-self: center` keeps it vertically centred against the two-line text
+ * block regardless of which side is taller. */
+#mc-project-sidebar .branch-row .bcurrent-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3d4556;
+  flex-shrink: 0;
+  align-self: center;
+}
+#mc-project-sidebar .branch-row .bcurrent-dot.is-current { background: var(--color-positive); }
+#mc-project-sidebar .branch-row .bswitch { background: transparent; border: none; color: var(--color-text-subtle); cursor: pointer; padding: 0; border-radius: 4px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; min-height: var(--mc-touch) !important; min-width: var(--mc-touch) !important; }
 #mc-project-sidebar .branch-row .bswitch:hover { color: var(--color-accent); }
+#mc-project-sidebar .branch-row .bswitch:focus-visible { outline: 1px solid var(--color-accent); outline-offset: -1px; }
 
 /* Vertical separator + breathing room between sidebar and context column.
  * C4: this is the single owner — the `md:border-r` utility was removed from
@@ -242,4 +359,10 @@
 #mc-project-sidebar {
   border-right: 1px solid var(--color-border);
   padding-right: 1rem;
+}
+/* Symmetric gutter: the aside carried `padding: 8px 16px 8px 8px`, so every
+ * widget inside had a different right edge than left (measured: icon bar ended
+ * at 495 while rows ended at 491 on a 1440px viewport). */
+#mc-project-sidebar {
+  padding-left: 16px;
 }
