@@ -34,10 +34,10 @@
   word-wrap: normal;
 }
 
-/* Harmonize interactive diff/file rows with the sidebar commit rows (6px radius,
+/* Harmonize interactive diff file rows with the sidebar commit rows (6px radius,
    same hover wash, mockup v4 language). These are div[role=button] so the host's
-   button radius rule does not apply — no !important needed. */
-[data-testid='commit-file-link'],
+   button radius rule does not apply — no !important needed. The commit inspector
+   list (commit-file-link) stays full-bleed: no radius, no rounding. */
 [data-testid='diff-file-list-item'] {
   border-radius: 6px;
 }
