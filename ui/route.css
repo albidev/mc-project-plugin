@@ -160,6 +160,52 @@
 /* Fase 4: ultimi valori arbitrari migrati a classi (nessun arbitrary value in className) */
 .ref-max-w { max-width: 24ch; }
 .overlay-w { width: min(400px, calc(100vw - 40px)); }
+/* Project selector overlay (target v4): card ricche come mockup */
+#project-options .proj-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+#project-options .proj-card:hover { background: rgba(255, 255, 255, .04); }
+#project-options .proj-card.active { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+#project-options .proj-card .picon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+#project-options .proj-card .pname { font-size: 13px; font-weight: 600; color: var(--color-text); }
+#project-options .proj-card .premote { font-size: 11px; color: var(--color-text-muted); }
+#project-options .proj-card .pstate { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+#project-options .proj-card .pchanged {
+  font-size: 10.5px;
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 13%, transparent);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+#project-options .proj-card .pbranch {
+  font-size: 10.5px;
+  font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 13%, transparent);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+#project-options .proj-card .pcheck { color: var(--color-accent); display: inline-flex; }
 /* Branch topology (issue #10) */
 #mc-project-sidebar .branch-topology { padding: 2px 4px 4px; }
 #mc-project-sidebar .branch-tab { background: transparent; border: none; color: var(--color-text-subtle); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 6px; cursor: pointer; transition: background .12s, color .12s; }
