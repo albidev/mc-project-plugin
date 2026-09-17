@@ -13,6 +13,11 @@ import { GitHubFooter } from '../components/GitHubFooter.tsx';
 const fixture = JSON.parse(readFileSync(fileURLToPath(new URL('../../tests/fixtures/contracts/snapshot-real-backend.json', import.meta.url)), 'utf8'));
 const sleep = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Real git diff spanning two files with hunks (src/app.ts: +2/-1, lib/util.ts: +1/-1).
+const MULTI_DIFF = 'diff --git a/src/app.ts b/src/app.ts\nindex 1111111..2222222 100644\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1,3 +1,4 @@\n const value = 1;\n-const oldValue = true;\n+const newValue = true;\n+const extra = true;\n  indented();\ndiff --git a/lib/util.ts b/lib/util.ts\nindex aa11111..bb22222 100644\n--- a/lib/util.ts\n+++ b/lib/util.ts\n@@ -10,2 +10,3 @@ function helper() {\n-  return oldHelper();\n+  return newHelper();\n}\n';
+// Real git output for a binary file and a mode-only change: no hunks at all.
+const NO_HUNK_DIFF = 'diff --git a/assets/logo.png b/assets/logo.png\nindex 1111111..2222222 100644\nBinary files a/assets/logo.png and b/assets/logo.png differ\ndiff --git a/run.sh b/run.sh\nold mode 100644\nnew mode 100755\n';
+
 function installDom() {
   const window = new Window({ url: 'http://localhost/mc-project-plugin' });
   const originalRect = window.HTMLElement.prototype.getBoundingClientRect;
@@ -96,6 +101,106 @@ test('renders a parsed unified diff without losing whitespace or adding widgets'
     assert.match(diff.className, /(?:^|\s)overflow-y-scroll(?:\s|$)/);
     // no widgets/comments injected by the renderer
     assert.equal(host.querySelectorAll('.diff-widget, [data-diff-widget]').length, 0);
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('renders per-file diff sections with a file list header and counts lines in the DOM', { concurrency: false }, async () => {
+  const window = installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const snapshot = structuredClone(fixture.data);
+  snapshot.fileDiffs['src/app.ts'] = MULTI_DIFF;
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'file', value: 'src/app.ts' }, snapshot })); await sleep(); });
+  try {
+    // File list header lists every file touched by the diff with +N/-N counts.
+    const list = host.querySelector('[data-testid="diff-file-list"]');
+    assert.ok(list, 'diff file list header exists');
+    const rows = [...list.querySelectorAll('[data-testid="diff-file-list-item"]')];
+    assert.equal(rows.length, 2, 'both files are listed');
+    assert.match(text(rows[0]), /src\/app\.ts/);
+    assert.match(text(rows[0]), /\+\s*2\s*-\s*1/, 'src/app.ts shows +2 -1');
+    assert.match(text(rows[1]), /lib\/util\.ts/);
+    assert.match(text(rows[1]), /\+\s*1\s*-\s*1/, 'lib/util.ts shows +1 -1');
+    // Per-file sections with a header identifying the path.
+    const sections = host.querySelectorAll('[data-testid="diff-file-section"]');
+    assert.equal(sections.length, 2, 'one section per file');
+    assert.equal(sections[0].querySelector('[data-testid="diff-file-section-path"]')?.textContent, 'src/app.ts');
+    assert.equal(sections[1].querySelector('[data-testid="diff-file-section-path"]')?.textContent, 'lib/util.ts');
+    // Added/deleted lines are actually counted in the DOM, not just present as markup.
+    const insert = host.querySelectorAll('.diff-code-insert');
+    const del = host.querySelectorAll('.diff-code-delete');
+    assert.equal(insert.length, 3, 'three + rows in the DOM');
+    assert.equal(del.length, 2, 'two - rows in the DOM');
+    // Each section header carries the path plus its own +N/-N counts.
+    const header = sections[0].querySelector('[data-testid="diff-file-section-path"]');
+    assert.ok(header);
+    assert.equal(header.textContent, 'src/app.ts');
+    assert.match(text(header.parentElement as HTMLElement), /\+\s*2\s*-1/, 'section header carries its own +2 -1');
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('toggle switches the diff between unified and split and back', { concurrency: false }, async () => {
+  const window = installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const snapshot = structuredClone(fixture.data);
+  snapshot.fileDiffs['src/app.ts'] = MULTI_DIFF;
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'file', value: 'src/app.ts' }, snapshot })); await sleep(); });
+  try {
+    // Breadcrumb toggle starts in unified and exposes a working control.
+    const toggle = host.querySelector<HTMLButtonElement>('[data-testid="diff-view-toggle"]');
+    assert.ok(toggle, 'diff view toggle exists in the breadcrumb');
+    assert.match(text(toggle), /Split/, 'toggle offers the split view');
+    assert.equal(host.querySelectorAll('.diff-line.split-' ).length, 0);
+    await act(async () => { toggle.click(); await sleep(); });
+    // Split renders split rows; the toggle now offers unified.
+    const splitRows = host.querySelectorAll('.diff-line[class*="split-"], .diff-line-old-only, .diff-line-new-only, .diff-line-compare, .diff-line-normal');
+    assert.ok(splitRows.length > 0, 'split view renders split rows');
+    const toggleAfter = host.querySelector<HTMLButtonElement>('[data-testid="diff-view-toggle"]');
+    assert.ok(toggleAfter, 'toggle persists after switching');
+    assert.match(text(toggleAfter), /Unified/, 'toggle offers the unified view after switching to split');
+    await act(async () => { toggleAfter.click(); await sleep(); });
+    assert.equal(host.querySelectorAll('.diff-line[class*="split-"], .diff-line-old-only, .diff-line-new-only, .diff-line-compare, .diff-line-normal').length, 0, 'back to unified renders no split rows');
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('renders well-formed no-hunk files (binary and mode change) with no anonymous raw pre fallback', { concurrency: false }, async () => {
+  const window = installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const snapshot = structuredClone(fixture.data);
+  snapshot.fileDiffs['assets/logo.png'] = NO_HUNK_DIFF;
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'file', value: 'assets/logo.png' }, snapshot })); await sleep(); });
+  try {
+    const sections = host.querySelectorAll('[data-testid="diff-file-section"]');
+    assert.equal(sections.length, 2, 'binary and mode-only files get explicit sections');
+    assert.equal(sections[0].querySelector('[data-testid="diff-file-section-path"]')?.textContent, 'assets/logo.png');
+    assert.match(text(sections[0]), /binary file/, 'binary file is labeled');
+    assert.equal(sections[1].querySelector('[data-testid="diff-file-section-path"]')?.textContent, 'run.sh');
+    assert.match(text(sections[1]), /mode change/, 'mode-only change is labeled');
+    assert.equal(host.querySelectorAll('.diff-code-insert').length, 0, 'no phantom added rows for no-hunk files');
+    assert.equal(host.querySelectorAll('.diff-code-delete').length, 0, 'no phantom deleted rows for no-hunk files');
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('file list rows smooth-scroll to their section and expose an aria target', { concurrency: false }, async () => {
+  const window = installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const snapshot = structuredClone(fixture.data);
+  snapshot.fileDiffs['src/app.ts'] = MULTI_DIFF;
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'file', value: 'src/app.ts' }, snapshot })); await sleep(); });
+  try {
+    const list = host.querySelector('[data-testid="diff-file-list"]');
+    assert.ok(list);
+    const lastRow = list.querySelector<HTMLElement>('[data-testid="diff-file-list-item"][data-file-path="lib/util.ts"]');
+    assert.ok(lastRow, 'second file row exists');
+    const scroll = host.querySelector<HTMLElement>('[data-testid="context-diff"]');
+    assert.ok(scroll, 'scroll container exists');
+    const target = host.querySelector('[data-testid="diff-file-section"][data-file-path="lib/util.ts"]');
+    assert.ok(target, 'section anchors its path');
+    assert.equal(scroll.contains(target), true, 'target lives inside the scroll container');
+    await act(async () => { lastRow.click(); await sleep(600); });
   } finally { await act(async () => root.unmount()); }
 });
 
