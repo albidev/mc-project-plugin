@@ -1,5 +1,51 @@
 /* Context panel surfaces: keep the dense diff/log/detail bodies as the scroll owners. */
 
+/* react-diff-view ships light pastel defaults; scope dark-theme values to the panel and
+   derive them from host tokens (color-mix), never hardcoded hex. */
+.rdv-scope {
+  --diff-background-color: transparent;
+  --diff-text-color: var(--color-text);
+  --diff-font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --diff-selection-background-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  --diff-gutter-insert-background-color: color-mix(in srgb, var(--color-positive) 22%, transparent);
+  --diff-gutter-delete-background-color: color-mix(in srgb, var(--color-negative) 22%, transparent);
+  --diff-gutter-insert-text-color: var(--color-positive);
+  --diff-gutter-delete-text-color: var(--color-negative);
+  --diff-code-insert-background-color: color-mix(in srgb, var(--color-positive) 13%, transparent);
+  --diff-code-insert-text-color: var(--color-text);
+  --diff-code-delete-background-color: color-mix(in srgb, var(--color-negative) 13%, transparent);
+  --diff-code-delete-text-color: var(--color-text);
+  --diff-code-insert-edit-background-color: color-mix(in srgb, var(--color-positive) 35%, transparent);
+  --diff-code-delete-edit-background-color: color-mix(in srgb, var(--color-negative) 35%, transparent);
+}
+
+/* Keep long diff lines on ONE line (GitHub style): the library defaults to
+   pre-wrap + break-all on a fixed table, which wraps code mid-line and looks
+   unformatted. Let the table grow with its content and scroll horizontally. */
+.rdv-scope .diff {
+  table-layout: auto;
+  width: max-content;
+  min-width: 100%;
+}
+.rdv-scope .diff-line,
+.rdv-scope .diff-code {
+  white-space: pre;
+  word-break: normal;
+  word-wrap: normal;
+}
+
+/* Harmonize interactive diff file rows with the sidebar commit rows (6px radius,
+   same hover wash, mockup v4 language). These are div[role=button] so the host's
+   button radius rule does not apply — no !important needed. The commit inspector
+   list (commit-file-link) stays full-bleed: no radius, no rounding. */
+[data-testid='diff-file-list-item'] {
+  border-radius: 6px;
+}
+[data-testid='commit-file-link']:hover,
+[data-testid='diff-file-list-item']:hover {
+  background: color-mix(in srgb, var(--color-surface-sunken) 60%, transparent);
+}
+
 [data-testid='context-diff'] {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--color-border) 70%, var(--color-text-subtle) 30%) var(--color-surface-sunken);

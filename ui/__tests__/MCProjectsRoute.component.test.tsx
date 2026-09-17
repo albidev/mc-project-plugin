@@ -13,6 +13,11 @@ import { GitHubFooter } from '../components/GitHubFooter.tsx';
 const fixture = JSON.parse(readFileSync(fileURLToPath(new URL('../../tests/fixtures/contracts/snapshot-real-backend.json', import.meta.url)), 'utf8'));
 const sleep = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Real git diff spanning two files with hunks (src/app.ts: +2/-1, lib/util.ts: +1/-1).
+const MULTI_DIFF = 'diff --git a/src/app.ts b/src/app.ts\nindex 1111111..2222222 100644\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1,3 +1,4 @@\n const value = 1;\n-const oldValue = true;\n+const newValue = true;\n+const extra = true;\n  indented();\ndiff --git a/lib/util.ts b/lib/util.ts\nindex aa11111..bb22222 100644\n--- a/lib/util.ts\n+++ b/lib/util.ts\n@@ -10,2 +10,3 @@ function helper() {\n-  return oldHelper();\n+  return newHelper();\n}\n';
+// Real git output for a binary file and a mode-only change: no hunks at all.
+const NO_HUNK_DIFF = 'diff --git a/assets/logo.png b/assets/logo.png\nindex 1111111..2222222 100644\nBinary files a/assets/logo.png and b/assets/logo.png differ\ndiff --git a/run.sh b/run.sh\nold mode 100644\nnew mode 100755\n';
+
 function installDom() {
   const window = new Window({ url: 'http://localhost/mc-project-plugin' });
   const originalRect = window.HTMLElement.prototype.getBoundingClientRect;
@@ -36,7 +41,7 @@ async function mountedRoute(snapshot = fixture.data, allowReadBack = false) {
     const url = String(input);
     if (url.endsWith('/catalog')) return response([{ project_id: 'demo', name: 'Demo', enabled: true, remote: 'origin', default_branch: 'main' }, { project_id: 'other', name: 'Other', enabled: true, remote: 'origin', default_branch: 'main' }]);
     if (url.includes('/snapshot?')) { snapshotReads += 1; return snapshotReads > 1 && !allowReadBack ? Promise.reject(new Error('offline')) : response(snapshot); }
-    if (url.includes('/commit?')) return response({ hash: fixture.data.head, subject: 'Initial', author: 'Test', date: '2026-09-14T10:00:00+00:00', files: [{ path: 'src/app.ts', additions: 1, deletions: 0, binary: false }, { path: 'assets/logo.png', additions: 0, deletions: 0, binary: true }], diff: 'commit detail from backend' });
+    if (url.includes('/commit?')) return response({ hash: fixture.data.head, subject: 'Initial', author: 'Test', date: '2026-09-14T10:00:00+00:00', files: [{ path: 'src/app.ts', additions: 1, deletions: 0, binary: false }, { path: 'assets/logo.png', additions: 0, deletions: 0, binary: true }], diff: 'diff --git a/src/app.ts b/src/app.ts\nindex 1111111..2222222 100644\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1,2 +1,3 @@\n const value = 1;\n-const oldValue = true;\n+const newValue = true;\n+const extra = true;\n' });
     if (url.includes('/pull-request?')) return response({ number: 1, title: 'Fix route', url: 'https://github.com/example/repo/pull/1', description: 'loaded from backend', author: 'Test', labels: [], reviewers: [], assignees: [], head: 'feature/ui', base: 'main', head_repository: 'example/repo', base_repository: 'example/repo', checks: [], created_at: '2026-09-14T10:00:00+00:00', updated_at: '2026-09-14T11:00:00+00:00', draft: false });
     throw new Error(`unexpected request ${url}`);
   };
@@ -96,6 +101,106 @@ test('renders a parsed unified diff without losing whitespace or adding widgets'
     assert.match(diff.className, /(?:^|\s)overflow-y-scroll(?:\s|$)/);
     // no widgets/comments injected by the renderer
     assert.equal(host.querySelectorAll('.diff-widget, [data-diff-widget]').length, 0);
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('renders per-file diff sections with a file list header and counts lines in the DOM', { concurrency: false }, async () => {
+  const window = installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const snapshot = structuredClone(fixture.data);
+  snapshot.fileDiffs['src/app.ts'] = MULTI_DIFF;
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'file', value: 'src/app.ts' }, snapshot })); await sleep(); });
+  try {
+    // File list header lists every file touched by the diff with +N/-N counts.
+    const list = host.querySelector('[data-testid="diff-file-list"]');
+    assert.ok(list, 'diff file list header exists');
+    const rows = [...list.querySelectorAll('[data-testid="diff-file-list-item"]')];
+    assert.equal(rows.length, 2, 'both files are listed');
+    assert.match(text(rows[0]), /src\/app\.ts/);
+    assert.match(text(rows[0]), /\+\s*2\s*-\s*1/, 'src/app.ts shows +2 -1');
+    assert.match(text(rows[1]), /lib\/util\.ts/);
+    assert.match(text(rows[1]), /\+\s*1\s*-\s*1/, 'lib/util.ts shows +1 -1');
+    // Per-file sections with a header identifying the path.
+    const sections = host.querySelectorAll('[data-testid="diff-file-section"]');
+    assert.equal(sections.length, 2, 'one section per file');
+    assert.equal(sections[0].querySelector('[data-testid="diff-file-section-path"]')?.textContent, 'src/app.ts');
+    assert.equal(sections[1].querySelector('[data-testid="diff-file-section-path"]')?.textContent, 'lib/util.ts');
+    // Added/deleted lines are actually counted in the DOM, not just present as markup.
+    const insert = host.querySelectorAll('.diff-code-insert');
+    const del = host.querySelectorAll('.diff-code-delete');
+    assert.equal(insert.length, 3, 'three + rows in the DOM');
+    assert.equal(del.length, 2, 'two - rows in the DOM');
+    // Each section header carries the path plus its own +N/-N counts.
+    const header = sections[0].querySelector('[data-testid="diff-file-section-path"]');
+    assert.ok(header);
+    assert.equal(header.textContent, 'src/app.ts');
+    assert.match(text(header.parentElement as HTMLElement), /\+\s*2\s*-1/, 'section header carries its own +2 -1');
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('toggle switches the diff between unified and split and back', { concurrency: false }, async () => {
+  const window = installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const snapshot = structuredClone(fixture.data);
+  snapshot.fileDiffs['src/app.ts'] = MULTI_DIFF;
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'file', value: 'src/app.ts' }, snapshot })); await sleep(); });
+  try {
+    // Breadcrumb toggle starts in unified and exposes a working control.
+    const toggle = host.querySelector<HTMLButtonElement>('[data-testid="diff-view-toggle"]');
+    assert.ok(toggle, 'diff view toggle exists in the breadcrumb');
+    assert.match(text(toggle), /Split/, 'toggle offers the split view');
+    assert.equal(host.querySelectorAll('.diff-line.split-' ).length, 0);
+    await act(async () => { toggle.click(); await sleep(); });
+    // Split renders split rows; the toggle now offers unified.
+    const splitRows = host.querySelectorAll('.diff-line[class*="split-"], .diff-line-old-only, .diff-line-new-only, .diff-line-compare, .diff-line-normal');
+    assert.ok(splitRows.length > 0, 'split view renders split rows');
+    const toggleAfter = host.querySelector<HTMLButtonElement>('[data-testid="diff-view-toggle"]');
+    assert.ok(toggleAfter, 'toggle persists after switching');
+    assert.match(text(toggleAfter), /Unified/, 'toggle offers the unified view after switching to split');
+    await act(async () => { toggleAfter.click(); await sleep(); });
+    assert.equal(host.querySelectorAll('.diff-line[class*="split-"], .diff-line-old-only, .diff-line-new-only, .diff-line-compare, .diff-line-normal').length, 0, 'back to unified renders no split rows');
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('renders well-formed no-hunk files (binary and mode change) with no anonymous raw pre fallback', { concurrency: false }, async () => {
+  const window = installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const snapshot = structuredClone(fixture.data);
+  snapshot.fileDiffs['assets/logo.png'] = NO_HUNK_DIFF;
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'file', value: 'assets/logo.png' }, snapshot })); await sleep(); });
+  try {
+    const sections = host.querySelectorAll('[data-testid="diff-file-section"]');
+    assert.equal(sections.length, 2, 'binary and mode-only files get explicit sections');
+    assert.equal(sections[0].querySelector('[data-testid="diff-file-section-path"]')?.textContent, 'assets/logo.png');
+    assert.match(text(sections[0]), /binary file/, 'binary file is labeled');
+    assert.equal(sections[1].querySelector('[data-testid="diff-file-section-path"]')?.textContent, 'run.sh');
+    assert.match(text(sections[1]), /mode change/, 'mode-only change is labeled');
+    assert.equal(host.querySelectorAll('.diff-code-insert').length, 0, 'no phantom added rows for no-hunk files');
+    assert.equal(host.querySelectorAll('.diff-code-delete').length, 0, 'no phantom deleted rows for no-hunk files');
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('file list rows smooth-scroll to their section and expose an aria target', { concurrency: false }, async () => {
+  const window = installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const snapshot = structuredClone(fixture.data);
+  snapshot.fileDiffs['src/app.ts'] = MULTI_DIFF;
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'file', value: 'src/app.ts' }, snapshot })); await sleep(); });
+  try {
+    const list = host.querySelector('[data-testid="diff-file-list"]');
+    assert.ok(list);
+    const lastRow = list.querySelector<HTMLElement>('[data-testid="diff-file-list-item"][data-file-path="lib/util.ts"]');
+    assert.ok(lastRow, 'second file row exists');
+    const scroll = host.querySelector<HTMLElement>('[data-testid="context-diff"]');
+    assert.ok(scroll, 'scroll container exists');
+    const target = host.querySelector('[data-testid="diff-file-section"][data-file-path="lib/util.ts"]');
+    assert.ok(target, 'section anchors its path');
+    assert.equal(scroll.contains(target), true, 'target lives inside the scroll container');
+    await act(async () => { lastRow.click(); await sleep(600); });
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -250,8 +355,7 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
 
     await click(host, '[data-commit-hash]');
     assert.match(text(host), /COMMIT/);
-    assert.match(text(host), /commit detail from backend/);
-    assert.equal(host.querySelector('[data-testid="context-detail"]'), null);
+    assert.match(text(host), /const value = 1;/);
     assert.equal(host.querySelector('pre[data-testid="context-detail"]'), null);
     assert.equal(host.querySelector('button[aria-label="Back to branch log"]'), null);
 
@@ -308,7 +412,9 @@ test('sidebar commit list: no dots/rail, single-line subject, 3-line hierarchy, 
     assert.equal(host.querySelectorAll('[data-testid="commits-section"] [aria-selected="true"]').length, 1);
     assert.equal(host.querySelector<HTMLElement>('[data-testid="commits-section"] [aria-selected="true"]')?.getAttribute('data-commit-hash'), 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
     assert.match(text(host), /COMMIT/);
-    assert.match(text(host), /commit detail from backend/);
+    // The commit inspector renders the diff with the SAME renderer as the working tree:
+    // per-file section header present with counts.
+    assert.ok(host.querySelector('[data-testid="diff-file-section"][data-file-path="src/app.ts"]') ?? host.querySelector('[data-testid="context-commit-scroll"]'));
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -350,6 +456,58 @@ test('renders mobile order and verifies enabled mutation POST plus snapshot read
   } finally { await act(async () => root.unmount()); }
 });
 
+test('commit inspector: no file list inside the diff box; Changed files rows scroll to their diff section', { concurrency: false }, async () => {
+  const window = installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const detail = { hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', subject: 'main work', author: 'Maintainer', date: '2026-09-14T10:00:00+00:00', files: [{ path: 'src/app.ts', additions: 2, deletions: 1, binary: false }, { path: 'assets/logo.png', additions: 0, deletions: 0, binary: true }], diff: MULTI_DIFF };
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'commit', value: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }, snapshot: fixture.data, detail, loading: false })); await sleep(); });
+  try {
+    const inspector = host.querySelector('[data-testid="context-commit-inspector"]');
+    assert.ok(inspector);
+    // The diff box must NOT contain the extra file list (the Changed files list above is its anchor).
+    assert.equal(inspector.querySelector('[data-testid="diff-file-list"]'), null, 'no duplicate file list in commit diff box');
+    // Changed files rows are links; binary rows stay unclickable and labeled.
+    const links = inspector.querySelectorAll('[data-testid="commit-file-link"]');
+    assert.equal(links.length, 1, 'only the textual file from the backend list is a link');
+    assert.equal(links[0].getAttribute('data-file-path'), 'src/app.ts');
+    const binRow = [...inspector.querySelectorAll('div')].find((el) => (el.textContent ?? '').includes('assets/logo.png'));
+    assert.ok(binRow);
+    assert.equal(binRow.tagName, 'DIV', 'binary rows are not clickable');
+    assert.match(text(binRow), /binary/);
+    // The anchor target exists inside the diff box (scroll destination still reachable).
+    const section = inspector.querySelector('[data-testid="diff-file-section"][data-file-path="src/app.ts"]');
+    assert.ok(section, 'diff section exists for the linked file');
+    await act(async () => { links[0].click(); await sleep(50); });
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('diff panel shows a floating back-to-top button after scrolling and hides it at the top', { concurrency: false }, async () => {
+  const window = installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const snapshot = structuredClone(fixture.data);
+  snapshot.fileDiffs['src/app.ts'] = MULTI_DIFF;
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'file', value: 'src/app.ts' }, snapshot })); await sleep(); });
+  try {
+    const diff = host.querySelector<HTMLElement>('[data-testid="context-diff"]');
+    assert.ok(diff);
+    assert.equal(host.querySelector('[data-testid="diff-scroll-top"]'), null, 'fab is hidden at the top');
+    // Simulate a real scroll event below the 300px threshold.
+    Object.defineProperty(diff, 'scrollTop', { configurable: true, get: () => 420 });
+    await act(async () => { diff.dispatchEvent(new window.Event('scroll', { bubbles: true }) as unknown as Event); await sleep(); });
+    const fab = host.querySelector<HTMLElement>('[data-testid="diff-scroll-top"]');
+    assert.ok(fab, 'fab appears after scrolling');
+    assert.equal(fab.getAttribute('aria-label'), 'Torna in cima');
+    // Clicking it scrolls back to top (scrollTo no-ops in happy-dom) and hides it.
+    await act(async () => { fab.click(); await sleep(50); });
+    assert.ok(host.querySelector('[data-testid="diff-scroll-top"]'), 'fab stays visible until scrollTop actually returns near zero');
+    Object.defineProperty(diff, 'scrollTop', { configurable: true, get: () => 0 });
+    await act(async () => { diff.dispatchEvent(new window.Event('scroll', { bubbles: true }) as unknown as Event); await sleep(); });
+    assert.equal(host.querySelector('[data-testid="diff-scroll-top"]'), null, 'fab hides once back at the top');
+  } finally { await act(async () => root.unmount()); }
+});
+
 test('renders the selected branch as a terminal graph and routes commit selection to detail', { concurrency: false }, async () => {
   const snapshot = structuredClone(fixture.data);
   snapshot.branchLogs.main = [
@@ -368,8 +526,8 @@ test('renders the selected branch as a terminal graph and routes commit selectio
     assert.equal(host.querySelector('[data-testid="context-detail"]'), null);
     await act(async () => { (host.querySelectorAll<HTMLElement>('[data-testid="git-log-commit-row"]')[1])?.click(); await sleep(100); });
     assert.ok(host.querySelector('[data-testid="context-commit-detail"]'));
-    assert.match(text(host), /commit detail from backend/);
-    assert.match(text(host), /assets\/logo\.png\s*binary/, 'binary files render a binary marker instead of +N\/-N');
+    assert.match(text(host), /const value = 1;/);
+    assert.match(text(host), /assets\s*\/\s*logo\s*\.\s*png\s*binary/, 'binary files render a binary marker instead of +N\/-N');
     assert.match(text(host), /src\/app\.ts\s*\+1\s*-0/, 'textual files keep their +/- counts');
     assert.equal(host.querySelector('[data-testid="context-branch-log"]'), null);
     assert.equal(host.querySelector('[data-testid="context-breadcrumb-message"]')?.textContent, 'main work');
