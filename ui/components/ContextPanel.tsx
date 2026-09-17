@@ -138,7 +138,7 @@ function DiffView({ diff, viewType = 'unified', onViewTypeChange, compact }: { d
 
   return (
     <div ref={containerRef} data-testid={compact ? undefined : 'context-diff'} tabIndex={compact ? undefined : 0} className={compact ? 'rdv-scope min-w-0' : 'rdv-scope flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-auto overflow-y-scroll overscroll-contain bg-surface px-1.5 py-1'}>
-      {blocks.length > 1 && <DiffFileList blocks={blocks} onSelect={scrollToFile} />}
+      {blocks.length > 1 && !compact && <DiffFileList blocks={blocks} onSelect={scrollToFile} />}
       {blocks.map((block) => {
         const file = block.file;
         const path = formatPath(file);
@@ -169,6 +169,11 @@ function CommitDetailView({ detail, loading }: { detail?: unknown; loading?: boo
     </div>
   );
   const commit = detail as CommitDetail;
+  const scrollCommitToFile = (path: string) => {
+    const inspector = document.querySelector<HTMLElement>('[data-testid="context-commit-inspector"]');
+    const target = inspector?.querySelector<HTMLElement>(`[data-testid="diff-file-section"][data-file-path="${path.replace(/"/g, '\\"')}"]`);
+    if (target && typeof target.scrollIntoView === 'function') target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   return (
     <div data-testid="context-commit-inspector" className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-sunken">
       <div data-testid="context-commit-scroll" tabIndex={0} className="min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-3 py-2">
@@ -176,8 +181,13 @@ function CommitDetailView({ detail, loading }: { detail?: unknown; loading?: boo
         <section>
           <div className="mb-1 flex items-center gap-1.5 cp-10 font-semibold uppercase tracking-[0.14em] text-text-muted"><FileText size={12} />Changed files <span className="text-text-subtle">{commit.files.length}</span></div>
           <div className="divide-y divide-border-subtle">
-            {commit.files.length === 0 ? <p className="px-1 py-2 text-xs text-text-muted">No file changes reported.</p> : commit.files.map((file) => (
-              <div key={file.path} className="flex items-center justify-between gap-3 px-1 py-1 cp-11"><span className="min-w-0 truncate font-mono text-text" title={file.path}>{file.path}</span>{file.binary ? <span className="shrink-0 font-mono cp-10 text-text-subtle">binary</span> : <span className="shrink-0 font-mono cp-10"><span className="text-positive">+{file.additions}</span><span className="ml-2 text-negative">-{file.deletions}</span></span>}</div>
+            {commit.files.length === 0 ? <p className="px-1 py-2 text-xs text-text-muted">No file changes reported.</p> : commit.files.map((file) => file.binary ? (
+              <div key={file.path} className="flex items-center justify-between gap-3 px-1 py-1 cp-11"><span className="min-w-0 truncate font-mono text-text" title={file.path}>{file.path}</span><span className="shrink-0 font-mono cp-10 text-text-subtle">binary</span></div>
+            ) : (
+              <button key={file.path} type="button" data-testid="commit-file-link" data-file-path={file.path} onClick={() => scrollCommitToFile(file.path)} title={`Scroll to ${file.path} in the diff`} className="flex w-full cursor-pointer items-center justify-between gap-3 px-1 py-1 text-left font-mono cp-11 hover:bg-surface-raised">
+                <span className="min-w-0 truncate text-text">{file.path}</span>
+                <span className="shrink-0 font-mono cp-10"><span className="text-positive">+{file.additions}</span><span className="ml-2 text-negative">-{file.deletions}</span></span>
+              </button>
             ))}
           </div>
         </section>

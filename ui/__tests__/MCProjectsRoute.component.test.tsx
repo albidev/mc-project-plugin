@@ -456,6 +456,32 @@ test('renders mobile order and verifies enabled mutation POST plus snapshot read
   } finally { await act(async () => root.unmount()); }
 });
 
+test('commit inspector: no file list inside the diff box; Changed files rows scroll to their diff section', { concurrency: false }, async () => {
+  const window = installDom();
+  const host = document.createElement('div'); document.body.append(host);
+  const detail = { hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', subject: 'main work', author: 'Maintainer', date: '2026-09-14T10:00:00+00:00', files: [{ path: 'src/app.ts', additions: 2, deletions: 1, binary: false }, { path: 'assets/logo.png', additions: 0, deletions: 0, binary: true }], diff: MULTI_DIFF };
+  const root = createRoot(host);
+  await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'commit', value: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }, snapshot: fixture.data, detail, loading: false })); await sleep(); });
+  try {
+    const inspector = host.querySelector('[data-testid="context-commit-inspector"]');
+    assert.ok(inspector);
+    // The diff box must NOT contain the extra file list (the Changed files list above is its anchor).
+    assert.equal(inspector.querySelector('[data-testid="diff-file-list"]'), null, 'no duplicate file list in commit diff box');
+    // Changed files rows are links; binary rows stay unclickable and labeled.
+    const links = inspector.querySelectorAll('[data-testid="commit-file-link"]');
+    assert.equal(links.length, 1, 'only the textual file from the backend list is a link');
+    assert.equal(links[0].getAttribute('data-file-path'), 'src/app.ts');
+    const binRow = [...inspector.querySelectorAll('div')].find((el) => (el.textContent ?? '').includes('assets/logo.png'));
+    assert.ok(binRow);
+    assert.equal(binRow.tagName, 'DIV', 'binary rows are not clickable');
+    assert.match(text(binRow), /binary/);
+    // The anchor target exists inside the diff box (scroll destination still reachable).
+    const section = inspector.querySelector('[data-testid="diff-file-section"][data-file-path="src/app.ts"]');
+    assert.ok(section, 'diff section exists for the linked file');
+    await act(async () => { links[0].click(); await sleep(50); });
+  } finally { await act(async () => root.unmount()); }
+});
+
 test('renders the selected branch as a terminal graph and routes commit selection to detail', { concurrency: false }, async () => {
   const snapshot = structuredClone(fixture.data);
   snapshot.branchLogs.main = [
