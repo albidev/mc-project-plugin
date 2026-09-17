@@ -207,6 +207,29 @@
   padding: 2px 7px;
 }
 #project-options .proj-card .pcheck { color: var(--color-accent); display: inline-flex; }
+/* Commit timeline (sidebar accordion): row rhythm and breathing room.
+ * Padding lives here as the single owner because Tailwind's `py-1`/`px-1.5`
+ * lost against the host preflight before the plugin declared its layer order
+ * (see ui/tailwind.css). These rules keep the row readable regardless. */
+#mc-project-sidebar .commit-row {
+  padding: 6px 8px;
+  border-radius: 0;
+  border-top: 1px solid var(--color-border-subtle);
+}
+#mc-project-sidebar .commit-row:first-child {
+  border-top: none;
+}
+#mc-project-sidebar .commit-row:hover {
+  background: color-mix(in srgb, var(--color-surface-sunken) 60%, transparent);
+}
+/* Second line: single compact metadata line, no wrap explosion. */
+#mc-project-sidebar .commit-meta {
+  overflow: hidden;
+}
+#mc-project-sidebar .commit-ref {
+  flex-shrink: 0;
+}
+
 /* Branch topology (issue #10) */
 #mc-project-sidebar .branch-topology { padding: 2px 4px 4px; }
 #mc-project-sidebar .branch-tab { background: transparent; border: none; color: var(--color-text-subtle); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 6px; cursor: pointer; transition: background .12s, color .12s; }
