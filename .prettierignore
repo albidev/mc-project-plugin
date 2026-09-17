@@ -1,0 +1,7 @@
+node_modules/
+.pytest_cache/
+.venv/
+.codegraph/
+dist/
+coverage/
+*.log

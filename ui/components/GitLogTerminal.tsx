@@ -1,58 +1,57 @@
-import React from 'react';
-import './GitLogTerminal.css';
-import { GitLogPaged, type Commit as LibraryCommit, type CustomTableRow } from '@tomplum/react-git-log';
-import type { Commit } from '../types.ts';
+import React from 'react'
+import './GitLogTerminal.css'
+import { GitLogPaged, type Commit as LibraryCommit, type CustomTableRow } from '@tomplum/react-git-log'
+import type { Commit } from '../types.ts'
 
 interface GitLogTerminalProps {
-  branch: string;
-  commits: Commit[];
-  selectedHash?: string;
-  onSelectCommit: (hash?: string) => void;
+  branch: string
+  commits: Commit[]
+  selectedHash?: string
+  onSelectCommit: (hash?: string) => void
 }
 
-
 type LibraryMeta = {
-  shortHash: string;
-  refs: string[];
-};
+  shortHash: string
+  refs: string[]
+}
 
-type LibraryEntry = LibraryCommit & LibraryMeta;
+type LibraryEntry = LibraryCommit & LibraryMeta
 
 type LibraryNodeProps = {
-  commit: LibraryCommit;
-  colour: string;
-  rowIndex: number;
-  columnIndex: number;
-  nodeSize: number;
-  isIndexPseudoNode: boolean;
-};
+  commit: LibraryCommit
+  colour: string
+  rowIndex: number
+  columnIndex: number
+  nodeSize: number
+  isIndexPseudoNode: boolean
+}
 
 // The graph column is rendered by @tomplum/react-git-log with a hard-coded row stride
 // (internally `re = 40`): node y = re/2 + rowSpacing + row * re, and the graph grid uses
 // `repeat(rows, 40px)`. The table row height must match that stride exactly, otherwise each
 // node drifts from its own commit row by (40 - rowHeight) per row.
-const LIBRARY_ROW_HEIGHT = 40;
+const LIBRARY_ROW_HEIGHT = 40
 
 function refClass(ref: string): string {
-  if (ref.startsWith('HEAD')) return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300';
-  if (/^[A-Za-z][A-Za-z0-9._-]*\/.+/.test(ref)) return 'border-cyan-400/30 bg-cyan-400/10 text-cyan-300';
-  if (ref.startsWith('tag:')) return 'border-amber-400/30 bg-amber-400/10 text-amber-300';
-  return 'border-violet-400/30 bg-violet-400/10 text-violet-300';
+  if (ref.startsWith('HEAD')) return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
+  if (/^[A-Za-z][A-Za-z0-9._-]*\/.+/.test(ref)) return 'border-cyan-400/30 bg-cyan-400/10 text-cyan-300'
+  if (ref.startsWith('tag:')) return 'border-amber-400/30 bg-amber-400/10 text-amber-300'
+  return 'border-violet-400/30 bg-violet-400/10 text-violet-300'
 }
 
 function relativeDate(value: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  const hours = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 3_600_000));
-  if (hours < 24) return `${hours} hours ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} days ago`;
-  return new Intl.DateTimeFormat(undefined, { month: 'short', day: '2-digit', year: 'numeric' }).format(parsed);
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  const hours = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 3_600_000))
+  if (hours < 24) return `${hours} hours ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days} days ago`
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: '2-digit', year: 'numeric' }).format(parsed)
 }
 
 function toLibraryEntries(branch: string, commits: Commit[]): LibraryEntry[] {
   return commits.map((commit, index) => {
-    const refs = Array.isArray(commit.refs) ? [...commit.refs] : commit.refs ? [commit.refs] : [];
+    const refs = Array.isArray(commit.refs) ? [...commit.refs] : commit.refs ? [commit.refs] : []
     return {
       hash: commit.hash,
       branch,
@@ -65,23 +64,23 @@ function toLibraryEntries(branch: string, commits: Commit[]): LibraryEntry[] {
       isBranchTip: index === 0 || refs.some((ref) => ref.startsWith('HEAD')),
       shortHash: commit.shortHash ?? commit.hash.slice(0, 7),
       refs,
-    };
-  });
+    }
+  })
 }
 
 export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }: GitLogTerminalProps) {
-  const entries = React.useMemo(() => toLibraryEntries(branch, commits), [branch, commits]);
+  const entries = React.useMemo(() => toLibraryEntries(branch, commits), [branch, commits])
 
   const renderRow: CustomTableRow = ({ commit, selected, backgroundColour }) => {
-    const meta = commit as LibraryEntry;
-    const isSelected = selected || meta.hash === selectedHash;
+    const meta = commit as LibraryEntry
+    const isSelected = selected || meta.hash === selectedHash
 
     return (
       <div
         data-testid="git-log-commit-row"
         data-commit-hash={meta.hash}
         aria-selected={isSelected}
-        className={`flex h-10 w-full min-w-0 items-center text-left font-mono cp-11 ${isSelected ? 'text-text' : 'text-text-muted'}`}
+        className={`cp-11 flex h-10 w-full min-w-0 items-center text-left font-mono ${isSelected ? 'text-text' : 'text-text-muted'}`}
         style={{
           height: LIBRARY_ROW_HEIGHT,
           minHeight: LIBRARY_ROW_HEIGHT,
@@ -90,7 +89,7 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
         }}
       >
         <div
-          className="grid h-6 min-h-6 w-full min-w-0 grid-cols-[7ch_minmax(0,1fr)_14ch_14ch] items-center gap-1.5 hover:bg-surface-sunken/70"
+          className="hover:bg-surface-sunken/70 grid h-6 min-h-6 w-full min-w-0 grid-cols-[7ch_minmax(0,1fr)_14ch_14ch] items-center gap-1.5"
           style={{
             height: 24,
             minHeight: 24,
@@ -99,38 +98,76 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
             backgroundColor: isSelected ? backgroundColour : 'transparent',
           }}
         >
-        {isSelected && <span data-testid="git-log-selected-row" className="sr-only">Selected commit</span>}
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 text-amber-300">{meta.shortHash}</span>
-        </span>
-        <span className="flex min-w-0 items-center gap-2 overflow-hidden">
-          <span className="flex shrink-0 gap-1 overflow-hidden">
-            {meta.refs.map((ref) => (
-              <span key={ref} data-testid="git-log-ref" className={`ref-max-w truncate rounded border px-1 py-px cp-10 leading-tight ${refClass(ref)}`} title={ref}>{ref}</span>
-            ))}
+          {isSelected && (
+            <span data-testid="git-log-selected-row" className="sr-only">
+              Selected commit
+            </span>
+          )}
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-amber-300">{meta.shortHash}</span>
           </span>
-          <span className="min-w-0 truncate cp-12 font-medium text-text">{meta.message}</span>
-        </span>
-        <span className="hidden min-w-0 truncate text-text-subtle xl:block" title={meta.author?.name ?? ''}>{meta.author?.name ?? ''}</span>
-        <time className="min-w-0 truncate text-right text-text-subtle" dateTime={meta.committerDate} title={meta.committerDate}>{relativeDate(meta.committerDate)}<span className="sr-only"> {meta.committerDate} {meta.author?.name ?? ''}</span></time>
-          <span className="sr-only">{meta.hash} {meta.parents.length > 1 ? 'merge: true' : ''} {meta.parents.length ? `Parents: ${meta.parents.join(', ')}` : 'Parents: (root)'}</span>
+          <span className="flex min-w-0 items-center gap-2 overflow-hidden">
+            <span className="flex shrink-0 gap-1 overflow-hidden">
+              {meta.refs.map((ref) => (
+                <span
+                  key={ref}
+                  data-testid="git-log-ref"
+                  className={`ref-max-w cp-10 truncate rounded border px-1 py-px leading-tight ${refClass(ref)}`}
+                  title={ref}
+                >
+                  {ref}
+                </span>
+              ))}
+            </span>
+            <span className="cp-12 text-text min-w-0 truncate font-medium">{meta.message}</span>
+          </span>
+          <span className="text-text-subtle hidden min-w-0 truncate xl:block" title={meta.author?.name ?? ''}>
+            {meta.author?.name ?? ''}
+          </span>
+          <time
+            className="text-text-subtle min-w-0 truncate text-right"
+            dateTime={meta.committerDate}
+            title={meta.committerDate}
+          >
+            {relativeDate(meta.committerDate)}
+            <span className="sr-only">
+              {' '}
+              {meta.committerDate} {meta.author?.name ?? ''}
+            </span>
+          </time>
+          <span className="sr-only">
+            {meta.hash} {meta.parents.length > 1 ? 'merge: true' : ''}{' '}
+            {meta.parents.length ? `Parents: ${meta.parents.join(', ')}` : 'Parents: (root)'}
+          </span>
         </div>
       </div>
-    );
-  };
+    )
+  }
 
   return (
-    <section data-testid="git-log-terminal" aria-label={`Git log ${branch}`} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-sunken cp-11 text-text-muted md:h-full">
-      <div data-testid="git-log-scroll" tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-auto bg-surface-sunken">
+    <section
+      data-testid="git-log-terminal"
+      aria-label={`Git log ${branch}`}
+      className="bg-surface-sunken cp-11 text-text-muted flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:h-full"
+    >
+      <div data-testid="git-log-scroll" tabIndex={0} className="bg-surface-sunken min-h-0 min-w-0 flex-1 overflow-auto">
         {entries.length === 0 ? (
-          <div role="status" className="px-3 py-4 text-text-muted">No commits available for this branch.</div>
+          <div role="status" className="text-text-muted px-3 py-4">
+            No commits available for this branch.
+          </div>
         ) : (
           <GitLogPaged
             entries={entries}
             branchName={branch}
             headCommitHash={entries[0]?.hash ?? ''}
             theme="dark"
-            colours={['rgb(56, 189, 248)', 'rgb(244, 114, 182)', 'rgb(250, 204, 21)', 'rgb(52, 211, 153)', 'rgb(167, 139, 250)']}
+            colours={[
+              'rgb(56, 189, 248)',
+              'rgb(244, 114, 182)',
+              'rgb(250, 204, 21)',
+              'rgb(52, 211, 153)',
+              'rgb(167, 139, 250)',
+            ]}
             rowSpacing={0}
             showGitIndex={false}
             enableSelectedCommitStyling
@@ -157,15 +194,18 @@ export function GitLogTerminal({ branch, commits, selectedHash, onSelectCommit }
                     zIndex: 20,
                   }}
                 >
-                  {commit.parents.length > 1 && <span style={{ position: 'absolute', inset: 3, borderRadius: '50%', background: colour }} />}
+                  {commit.parents.length > 1 && (
+                    <span style={{ position: 'absolute', inset: 3, borderRadius: '50%', background: colour }} />
+                  )}
                 </div>
               )}
               showCommitNodeTooltips={false}
               highlightedBackgroundHeight={24}
             />
             <GitLogPaged.Table row={renderRow} timestampFormat="YYYY-MM-DD HH:mm" />
-          </GitLogPaged>        )}
+          </GitLogPaged>
+        )}
       </div>
     </section>
-  );
+  )
 }

@@ -59,14 +59,14 @@ Lo snapshot HTTP può restare aggregato per comodità della UI, ma internamente 
 
 La fonte di verità dipende dal dato:
 
-| Dato | Fonte primaria | Motivo |
-|---|---|---|
-| working tree, file modificati, branch locali | Git locale | GitHub non conosce le modifiche non committate e i branch locali. |
-| HEAD e log presenti nel checkout | Git locale | È lo stato effettivamente osservato sul repository aperto. |
-| branch remoti, PR, issue, checks, release | GitHub API | Sono informazioni del servizio remoto e non devono essere ricostruite dal checkout. |
-| tracking branch e remote alias | Git locale | Il checkout contiene la relazione branch → remote/ref configurata localmente. |
-| ahead/behind rispetto al tracking branch | Git locale | È la divergenza effettiva rispetto al ref upstream osservato. |
-| stato aggiornato del repository remoto | GitHub API | Git locale può avere remote-tracking refs vecchi se non viene eseguito fetch. |
+| Dato                                         | Fonte primaria | Motivo                                                                              |
+| -------------------------------------------- | -------------- | ----------------------------------------------------------------------------------- |
+| working tree, file modificati, branch locali | Git locale     | GitHub non conosce le modifiche non committate e i branch locali.                   |
+| HEAD e log presenti nel checkout             | Git locale     | È lo stato effettivamente osservato sul repository aperto.                          |
+| branch remoti, PR, issue, checks, release    | GitHub API     | Sono informazioni del servizio remoto e non devono essere ricostruite dal checkout. |
+| tracking branch e remote alias               | Git locale     | Il checkout contiene la relazione branch → remote/ref configurata localmente.       |
+| ahead/behind rispetto al tracking branch     | Git locale     | È la divergenza effettiva rispetto al ref upstream osservato.                       |
+| stato aggiornato del repository remoto       | GitHub API     | Git locale può avere remote-tracking refs vecchi se non viene eseguito fetch.       |
 
 Il backend deve quindi comporre due fonti, dichiarando nella risposta quale sezione è `local`, quale è `github` e quando un dato remoto è stale o non disponibile.
 
@@ -126,12 +126,12 @@ La riga deve poter essere espansa. Nel dettaglio, quando disponibile, mostrare d
 
 ### Alternative scartate per ora
 
-| Alternativa | Valutazione |
-|---|---|
-| `GitPython`/libreria equivalente | Più API Python, ma aggiunge dipendenza e non elimina la necessità di gestire repository/path/errori. Da rivalutare solo se il parsing CLI diventa il problema reale. |
-| API GitHub come fonte primaria di tutto | Sbagliata per il monitoraggio locale: non vede working tree e branch non pubblicati. Va usata come adapter remoto secondario, non come sostituto di Git locale. |
-| daemon Git permanente | Complessità e stato duplicato senza beneficio per un monitor di piccole operazioni. |
-| esecuzione di comandi generici passati dal browser | Non accettabile: trasforma il plugin in un terminale remoto con path e comandi arbitrari. |
+| Alternativa                                        | Valutazione                                                                                                                                                          |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GitPython`/libreria equivalente                   | Più API Python, ma aggiunge dipendenza e non elimina la necessità di gestire repository/path/errori. Da rivalutare solo se il parsing CLI diventa il problema reale. |
+| API GitHub come fonte primaria di tutto            | Sbagliata per il monitoraggio locale: non vede working tree e branch non pubblicati. Va usata come adapter remoto secondario, non come sostituto di Git locale.      |
+| daemon Git permanente                              | Complessità e stato duplicato senza beneficio per un monitor di piccole operazioni.                                                                                  |
+| esecuzione di comandi generici passati dal browser | Non accettabile: trasforma il plugin in un terminale remoto con path e comandi arbitrari.                                                                            |
 
 ## 3. Registry dei progetti
 
@@ -218,7 +218,7 @@ Risposta:
       "pathLabel": "${MC_PROJECT_HOST_ROOT}",
       "available": true,
       "currentBranch": "main",
-      "workingTree": {"state": "clean", "changed": 0, "untracked": 0},
+      "workingTree": { "state": "clean", "changed": 0, "untracked": 0 },
       "lastCheckedAt": "..."
     }
   ]
@@ -253,10 +253,8 @@ Questo è l’endpoint principale della schermata. Restituisce un modello coeren
   },
   "workingTree": {
     "state": "modified",
-    "files": [
-      {"path": "src/plugins/loader.py", "status": "modified", "staged": false}
-    ],
-    "counts": {"modified": 1, "added": 0, "deleted": 0, "untracked": 0}
+    "files": [{ "path": "src/plugins/loader.py", "status": "modified", "staged": false }],
+    "counts": { "modified": 1, "added": 0, "deleted": 0, "untracked": 0 }
   },
   "commits": [],
   "branches": [],
@@ -278,7 +276,7 @@ Se una sezione secondaria fallisce, non cancellare tutto lo snapshot:
 
 ```json
 {
-  "tree": {"state": "unavailable", "error": {"code": "GIT_TREE_FAILED"}},
+  "tree": { "state": "unavailable", "error": { "code": "GIT_TREE_FAILED" } },
   "warnings": ["git tree unavailable"]
 }
 ```
