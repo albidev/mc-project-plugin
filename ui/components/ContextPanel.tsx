@@ -111,65 +111,51 @@ function HunklessSection({ block }: { block: DiffBlock }) {
   );
 }
 
-function DiffView({ diff, surface = true, viewType, onViewTypeChange }: { diff: string; surface?: boolean; viewType?: 'unified' | 'split'; onViewTypeChange?: (view: 'unified' | 'split') => void }) {
-  const [localView, setLocalView] = useState<'unified' | 'split'>('unified');
-  const effectiveView: 'unified' | 'split' = viewType ?? localView;
-  const switchView = (view: 'unified' | 'split') => {
-    if (onViewTypeChange) onViewTypeChange(view);
-    else setLocalView(view);
-  };
+function DiffView({ diff, viewType = 'unified', onViewTypeChange, compact }: { diff: string; viewType?: 'unified' | 'split'; onViewTypeChange?: (view: 'unified' | 'split') => void; compact?: boolean }) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
   let blocks: DiffBlock[] = [];
   try { blocks = splitDiffBlocks(diff); } catch { /* keep empty so the fallback shows raw text */ }
 
   const renderHunks = (hunks: ReturnType<typeof parseDiff>[number]['hunks']) => (hs: typeof hunks) => hs.map((hunk) => <Hunk key={hunk.content} hunk={hunk} />);
 
-  if (!surface) {
-    // Compact inline rendering (commit inspector "Diff preview") — use the
-    // same parser, rendered as a simple pre when no hunk is available.
-    const main = blocks[0]?.file;
-    const hunks = main?.hunks ?? [];
-    if (!main || hunks.length === 0) {
-      return <pre style={{ fontFamily: MONO }} className="m-0 min-w-0 whitespace-pre-wrap break-all px-2 py-1 cp-11 cp-leading-tight text-text-muted">{diff}</pre>;
-    }
-    return <div className="rdv-inline" style={{ fontFamily: MONO }}><Diff viewType="unified" diffType={main.type ?? 'modify'} hunks={hunks}>{renderHunks(hunks)}</Diff></div>;
-  }
-
   const scrollToFile = (block: DiffBlock) => {
     const path = formatPath(block.file);
-    const scroller = document.querySelector<HTMLElement>('[data-testid="context-diff"]');
+    const scroller = containerRef.current;
     const target = scroller?.querySelector<HTMLElement>(`[data-testid="diff-file-section"][data-file-path="${path.replace(/"/g, '\\"')}"]`);
-    if (scroller && target) {
-      const top = target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
-      scroller.scrollTo({ top, behavior: 'smooth' });
+    if (!scroller || !target) return;
+    if (typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (typeof scroller.scrollTo === 'function') {
+      scroller.scrollTo({ top: target.offsetTop - scroller.offsetTop, behavior: 'smooth' });
     }
   };
 
+  if (blocks.length === 0) {
+    return (
+      <pre data-testid={compact ? undefined : 'context-diff'} tabIndex={compact ? undefined : 0} className={compact ? 'rdv-scope m-0 min-w-0 whitespace-pre-wrap break-all px-2 py-1 cp-11 cp-leading-tight text-text-muted' : 'rdv-scope m-0 min-w-max overflow-x-auto overflow-y-scroll whitespace-pre px-2 py-1 cp-11 cp-leading-tight text-text-muted'}>{diff}</pre>
+    );
+  }
+
   return (
-    <div data-testid="context-diff" tabIndex={0} className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-auto overflow-y-scroll overscroll-contain bg-surface">
+    <div ref={containerRef} data-testid={compact ? undefined : 'context-diff'} tabIndex={compact ? undefined : 0} className={compact ? 'rdv-scope min-w-0' : 'rdv-scope flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-auto overflow-y-scroll overscroll-contain bg-surface px-1.5 py-1'}>
       {blocks.length > 1 && <DiffFileList blocks={blocks} onSelect={scrollToFile} />}
-      <div className="min-w-0 flex-1 px-1.5 py-1">
-        {blocks.length === 0 ? (
-          <pre style={{ fontFamily: MONO }} className="m-0 min-w-max whitespace-pre cp-11 cp-leading-tight text-text-muted">{diff}</pre>
-        ) : (
-          blocks.map((block) => {
-            const file = block.file;
-            const path = formatPath(file);
-            if (isHunkless(file)) return <HunklessSection key={path || file.oldPath} block={block} />;
-            return (
-              <div key={path || file.oldPath} data-testid="diff-file-section" data-file-path={path} className="border-b border-border-subtle last:border-b-0">
-                <div className="flex items-center gap-2 border-b border-border-subtle bg-surface px-2 py-1 font-mono cp-11 leading-tight text-text">
-                  <span data-testid="diff-file-section-path" className="min-w-0 flex-1 truncate">{path}</span>
-                  <span className="shrink-0 font-mono cp-10 text-positive">+{countChanges(file.hunks).added}</span>
-                  <span className="shrink-0 font-mono cp-10 text-negative">-{countChanges(file.hunks).deleted}</span>
-                </div>
-                <Diff viewType={effectiveView} diffType={file.type ?? 'modify'} hunks={file.hunks} className="rdv-root">
-                  {renderHunks(file.hunks)}
-                </Diff>
-              </div>
-            );
-          })
-        )}
-      </div>
+      {blocks.map((block) => {
+        const file = block.file;
+        const path = formatPath(file);
+        if (isHunkless(file)) return <HunklessSection key={path || file.oldPath} block={block} />;
+        return (
+          <div key={path || file.oldPath} data-testid="diff-file-section" data-file-path={path} className="border-b border-border-subtle last:border-b-0">
+            <div className="flex items-center gap-2 border-b border-border-subtle bg-surface px-2 py-1 font-mono cp-11 leading-tight text-text">
+              <span data-testid="diff-file-section-path" className="min-w-0 flex-1 truncate">{path}</span>
+              <span className="shrink-0 font-mono cp-10 text-positive">+{countChanges(file.hunks).added}</span>
+              <span className="shrink-0 font-mono cp-10 text-negative">-{countChanges(file.hunks).deleted}</span>
+            </div>
+            <Diff viewType={viewType} diffType={file.type ?? 'modify'} hunks={file.hunks} className="rdv-root">
+              {renderHunks(file.hunks)}
+            </Diff>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -195,7 +181,7 @@ function CommitDetailView({ detail, loading }: { detail?: unknown; loading?: boo
             ))}
           </div>
         </section>
-        {commit.diff && <details className="overflow-hidden" open><summary className="cursor-pointer border-y border-border-subtle px-1 py-1 cp-10 font-semibold uppercase tracking-[0.14em] text-text-muted">Diff preview</summary><DiffView diff={commit.diff} surface={false} /></details>}
+        {commit.diff && <details className="overflow-hidden" open><summary className="cursor-pointer border-y border-border-subtle px-1 py-1 cp-10 font-semibold uppercase tracking-[0.14em] text-text-muted">Diff preview</summary><DiffView diff={commit.diff} compact /></details>}
       </div>
     </div>
   );

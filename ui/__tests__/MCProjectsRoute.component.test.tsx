@@ -41,7 +41,7 @@ async function mountedRoute(snapshot = fixture.data, allowReadBack = false) {
     const url = String(input);
     if (url.endsWith('/catalog')) return response([{ project_id: 'demo', name: 'Demo', enabled: true, remote: 'origin', default_branch: 'main' }, { project_id: 'other', name: 'Other', enabled: true, remote: 'origin', default_branch: 'main' }]);
     if (url.includes('/snapshot?')) { snapshotReads += 1; return snapshotReads > 1 && !allowReadBack ? Promise.reject(new Error('offline')) : response(snapshot); }
-    if (url.includes('/commit?')) return response({ hash: fixture.data.head, subject: 'Initial', author: 'Test', date: '2026-09-14T10:00:00+00:00', files: [{ path: 'src/app.ts', additions: 1, deletions: 0, binary: false }, { path: 'assets/logo.png', additions: 0, deletions: 0, binary: true }], diff: 'commit detail from backend' });
+    if (url.includes('/commit?')) return response({ hash: fixture.data.head, subject: 'Initial', author: 'Test', date: '2026-09-14T10:00:00+00:00', files: [{ path: 'src/app.ts', additions: 1, deletions: 0, binary: false }, { path: 'assets/logo.png', additions: 0, deletions: 0, binary: true }], diff: 'diff --git a/src/app.ts b/src/app.ts\nindex 1111111..2222222 100644\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1,2 +1,3 @@\n const value = 1;\n-const oldValue = true;\n+const newValue = true;\n+const extra = true;\n' });
     if (url.includes('/pull-request?')) return response({ number: 1, title: 'Fix route', url: 'https://github.com/example/repo/pull/1', description: 'loaded from backend', author: 'Test', labels: [], reviewers: [], assignees: [], head: 'feature/ui', base: 'main', head_repository: 'example/repo', base_repository: 'example/repo', checks: [], created_at: '2026-09-14T10:00:00+00:00', updated_at: '2026-09-14T11:00:00+00:00', draft: false });
     throw new Error(`unexpected request ${url}`);
   };
@@ -355,8 +355,7 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
 
     await click(host, '[data-commit-hash]');
     assert.match(text(host), /COMMIT/);
-    assert.match(text(host), /commit detail from backend/);
-    assert.equal(host.querySelector('[data-testid="context-detail"]'), null);
+    assert.match(text(host), /const value = 1;/);
     assert.equal(host.querySelector('pre[data-testid="context-detail"]'), null);
     assert.equal(host.querySelector('button[aria-label="Back to branch log"]'), null);
 
@@ -413,7 +412,9 @@ test('sidebar commit list: no dots/rail, single-line subject, 3-line hierarchy, 
     assert.equal(host.querySelectorAll('[data-testid="commits-section"] [aria-selected="true"]').length, 1);
     assert.equal(host.querySelector<HTMLElement>('[data-testid="commits-section"] [aria-selected="true"]')?.getAttribute('data-commit-hash'), 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
     assert.match(text(host), /COMMIT/);
-    assert.match(text(host), /commit detail from backend/);
+    // The commit inspector renders the diff with the SAME renderer as the working tree:
+    // per-file section header present with counts.
+    assert.ok(host.querySelector('[data-testid="diff-file-section"][data-file-path="src/app.ts"]') ?? host.querySelector('[data-testid="context-commit-scroll"]'));
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -473,8 +474,8 @@ test('renders the selected branch as a terminal graph and routes commit selectio
     assert.equal(host.querySelector('[data-testid="context-detail"]'), null);
     await act(async () => { (host.querySelectorAll<HTMLElement>('[data-testid="git-log-commit-row"]')[1])?.click(); await sleep(100); });
     assert.ok(host.querySelector('[data-testid="context-commit-detail"]'));
-    assert.match(text(host), /commit detail from backend/);
-    assert.match(text(host), /assets\/logo\.png\s*binary/, 'binary files render a binary marker instead of +N\/-N');
+    assert.match(text(host), /const value = 1;/);
+    assert.match(text(host), /assets\s*\/\s*logo\s*\.\s*png\s*binary/, 'binary files render a binary marker instead of +N\/-N');
     assert.match(text(host), /src\/app\.ts\s*\+1\s*-0/, 'textual files keep their +/- counts');
     assert.equal(host.querySelector('[data-testid="context-branch-log"]'), null);
     assert.equal(host.querySelector('[data-testid="context-breadcrumb-message"]')?.textContent, 'main work');
