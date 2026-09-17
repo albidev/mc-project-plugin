@@ -256,6 +256,39 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
   } finally { await act(async () => root.unmount()); }
 });
 
+test('sidebar commit list: no dots/rail, clamp subject, real selection state', { concurrency: false }, async () => {
+  const clean = structuredClone(fixture.data);
+  clean.commits = [
+    { hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', shortHash: 'aaaaaaa', subject: 'main work', author: 'Maintainer', date: '2026-09-14T10:00:00+00:00', merge: false, refs: ['HEAD -> main'], parents: [] },
+    { hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', shortHash: 'bbbbbbb', subject: 'feature work', author: 'Contributor', date: '2026-09-14T09:00:00+00:00', merge: false, refs: [], parents: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'] },
+    { hash: 'cccccccccccccccccccccccccccccccccccccccc', shortHash: 'ccccccc', subject: 'merge branch', author: 'Maintainer', date: '2026-09-14T08:00:00+00:00', merge: true, refs: [], parents: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'] },
+  ];
+  clean.capabilities.commits.value = clean.commits;
+  const { host, root } = await mountedRoute(clean);
+  try {
+    // Commits accordion is closed by default: open it first.
+    await click(host, '[data-acc-section="commits"] .acc-head');
+    const rows = host.querySelectorAll('[data-testid="commits-section"] [data-commit-hash]');
+    assert.equal(rows.length, 3);
+    // No isolated dots and no graph rail in the sidebar list (decision #17).
+    assert.equal(host.querySelectorAll('[data-testid="commits-section"] .commit-dot').length, 0);
+    assert.equal(host.querySelectorAll('[data-testid="commits-section"] .commit-rail').length, 0);
+    // Subject uses the two-line clamp, not single-line truncate.
+    const subject = host.querySelector<HTMLElement>('[data-testid="commits-section"] .commit-subject');
+    assert.ok(subject);
+    assert.equal(subject.classList.contains('truncate'), false);
+    // Nothing selected before a click.
+    assert.equal(host.querySelectorAll('[data-testid="commits-section"] [aria-selected="true"]').length, 0);
+    // Click the head commit (the fixture mock serves its detail): selection
+    // lands on the row and the commit detail loads in the context column.
+    await click(host, '[data-commit-hash="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]');
+    assert.equal(host.querySelectorAll('[data-testid="commits-section"] [aria-selected="true"]').length, 1);
+    assert.equal(host.querySelector<HTMLElement>('[data-testid="commits-section"] [aria-selected="true"]')?.getAttribute('data-commit-hash'), 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+    assert.match(text(host), /COMMIT/);
+    assert.match(text(host), /commit detail from backend/);
+  } finally { await act(async () => root.unmount()); }
+});
+
 test('renders mobile order and verifies enabled mutation POST plus snapshot read-back', { concurrency: false }, async () => {
   const clean = structuredClone(fixture.data);
   clean.workingTree.files = [];

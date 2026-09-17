@@ -218,17 +218,33 @@
 /* Commit timeline (sidebar accordion): row rhythm and breathing room.
  * Padding lives here as the single owner because Tailwind's `py-1`/`px-1.5`
  * lost against the host preflight before the plugin declared its layer order
- * (see ui/tailwind.css). These rules keep the row readable regardless. */
+ * (see ui/tailwind.css). These rules keep the row readable regardless.
+ * #17: no border-top separators — the vertical rhythm comes from generous
+ * padding plus hover/selection states; HISTORY owns the graph, so no rail
+ * or isolated dots in this list either. */
 #mc-project-sidebar .commit-row {
-  padding: 6px 8px;
-  border-radius: 0;
-  border-top: 1px solid var(--color-border-subtle);
-}
-#mc-project-sidebar .commit-row:first-child {
-  border-top: none;
+  padding: 5px 8px;
+  border-radius: 6px;
 }
 #mc-project-sidebar .commit-row:hover {
   background: color-mix(in srgb, var(--color-surface-sunken) 60%, transparent);
+}
+/* Selected row: the accent wash (same language as mockup v4 selection),
+ * rounded, zero border — no hard pill, no outline. */
+#mc-project-sidebar .commit-row.selected {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+#mc-project-sidebar .commit-row.selected:hover {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+/* Subject: two lines max, ellipsis after the second line regardless of
+ * column width (declared truncation behaviour, #17). */
+#mc-project-sidebar .commit-subject {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 /* Second line: single compact metadata line, no wrap explosion. */
 #mc-project-sidebar .commit-meta {

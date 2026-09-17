@@ -18,18 +18,20 @@ function relTime(iso: string | undefined): string {
   return days === 1 ? '1 day ago' : `${days} days ago`;
 }
 
-export function CommitTimeline({ commits, onSelect }: { commits: Commit[]; onSelect: (hash: string) => void }) {
+export function CommitTimeline({ commits, onSelect, selectedCommitHash }: { commits: Commit[]; onSelect: (hash: string) => void; selectedCommitHash?: string }) {
   return <div data-testid="commits-section" className="min-w-0 py-0.5">
-    {commits.map((commit, i) => {
+    {commits.map((commit) => {
       const date = commit.authoredAt ?? commit.date;
       const refs = Array.isArray(commit.refs) ? commit.refs : commit.refs ? [commit.refs] : [];
-      return <button type="button" data-commit-hash={commit.hash} key={commit.hash} onClick={() => onSelect(commit.hash)} className="commit-row group flex w-full cursor-pointer items-start gap-2 cp-11 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent">
-        <span className={`commit-dot mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${i === 0 ? 'bg-accent' : 'bg-text-subtle'}`} />
+      const isSelected = selectedCommitHash === commit.hash;
+      return <button type="button" data-commit-hash={commit.hash} aria-selected={isSelected} key={commit.hash} onClick={() => onSelect(commit.hash)} className={`commit-row ${isSelected ? 'selected' : ''} group flex w-full cursor-pointer items-start gap-2 cp-11 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent`}>
         <span className="min-w-0 flex-1">
-          {/* Two lines max: subject, then one compact metadata line. Refs and
-           * parent count ride the same line as badges instead of wrapping onto
-           * their own rows (measured before: 7 wrapped lines on a merge commit). */}
-          <span className="commit-subject block truncate text-text">{commit.subject}{commit.merge || (commit.parents?.length ?? 0) > 1 ? ' · merge' : ''}</span>
+          {/* Two lines max for the subject (clamped, ellipsis after line 2), one
+           * compact metadata line. Refs and parent count ride the same line as
+           * badges instead of wrapping onto their own rows (measured before:
+           * 7 wrapped lines on a merge commit). No rail/dots in the sidebar:
+           * HISTORY owns the graph; this list owns readability (#17). */}
+          <span className="commit-subject block text-text">{commit.subject}{commit.merge || (commit.parents?.length ?? 0) > 1 ? ' · merge' : ''}</span>
           <span className="commit-meta mt-0.5 flex min-w-0 items-center gap-1.5 cp-10 text-text-muted">
             <span className="commit-hash shrink-0 font-mono text-accent">{commit.shortHash ?? commit.hash.slice(0, 7)}</span>
             <span className="min-w-0 truncate text-text-subtle">{commit.author}</span>
