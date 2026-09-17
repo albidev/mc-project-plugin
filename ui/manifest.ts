@@ -1,4 +1,4 @@
-import type { PluginManifest } from './types';
+import type { PluginManifest } from './types'
 
 const manifest: PluginManifest = {
   id: 'mc-project-plugin',
@@ -12,10 +12,15 @@ const manifest: PluginManifest = {
     { method: 'GET', path: '/mc-project-plugin/projects/catalog', handler: 'listProjects', authRequired: true },
     { method: 'GET', path: '/mc-project-plugin/projects/snapshot', handler: 'getSnapshot', authRequired: true },
     { method: 'GET', path: '/mc-project-plugin/projects/commit', handler: 'getCommitDetail', authRequired: true },
-    { method: 'GET', path: '/mc-project-plugin/projects/pull-request', handler: 'getPullRequestDetail', authRequired: true },
+    {
+      method: 'GET',
+      path: '/mc-project-plugin/projects/pull-request',
+      handler: 'getPullRequestDetail',
+      authRequired: true,
+    },
     { method: 'POST', path: '/mc-project-plugin/projects/branch/switch', handler: 'switchBranch', authRequired: true },
     { method: 'POST', path: '/mc-project-plugin/projects/branch/create', handler: 'createBranch', authRequired: true },
   ],
-};
+}
 
-export default manifest;
+export default manifest

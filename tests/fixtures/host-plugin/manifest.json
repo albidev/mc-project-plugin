@@ -5,13 +5,33 @@
   "version": "0.1.0",
   "enabled": true,
   "routePath": "/mc-project-plugin",
-  "navItem": {"to": "/mc-project-plugin", "label": "Projects", "icon": "FolderGit2", "order": 75},
+  "navItem": { "to": "/mc-project-plugin", "label": "Projects", "icon": "FolderGit2", "order": 75 },
   "endpoints": [
-    {"method": "GET", "path": "/mc-project-plugin/projects/catalog", "handler": "listProjects", "authRequired": true},
-    {"method": "GET", "path": "/mc-project-plugin/projects/snapshot", "handler": "getSnapshot", "authRequired": true},
-    {"method": "GET", "path": "/mc-project-plugin/projects/commit", "handler": "getCommitDetail", "authRequired": true},
-    {"method": "GET", "path": "/mc-project-plugin/projects/pull-request", "handler": "getPullRequestDetail", "authRequired": true},
-    {"method": "POST", "path": "/mc-project-plugin/projects/branch/switch", "handler": "switchBranch", "authRequired": true},
-    {"method": "POST", "path": "/mc-project-plugin/projects/branch/create", "handler": "createBranch", "authRequired": true}
+    { "method": "GET", "path": "/mc-project-plugin/projects/catalog", "handler": "listProjects", "authRequired": true },
+    { "method": "GET", "path": "/mc-project-plugin/projects/snapshot", "handler": "getSnapshot", "authRequired": true },
+    {
+      "method": "GET",
+      "path": "/mc-project-plugin/projects/commit",
+      "handler": "getCommitDetail",
+      "authRequired": true
+    },
+    {
+      "method": "GET",
+      "path": "/mc-project-plugin/projects/pull-request",
+      "handler": "getPullRequestDetail",
+      "authRequired": true
+    },
+    {
+      "method": "POST",
+      "path": "/mc-project-plugin/projects/branch/switch",
+      "handler": "switchBranch",
+      "authRequired": true
+    },
+    {
+      "method": "POST",
+      "path": "/mc-project-plugin/projects/branch/create",
+      "handler": "createBranch",
+      "authRequired": true
+    }
   ]
 }

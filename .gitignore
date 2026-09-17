@@ -1,3 +1,5 @@
 node_modules/
 .codegraph/
 .venv/
+.pytest_cache/
+__pycache__/

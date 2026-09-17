@@ -36,11 +36,11 @@
  * silently did nothing (measured: order stayed utilities -> base, padding 0px). */
 @layer theme, base, components, utilities;
 
-@import "tailwindcss/theme" layer(theme);
-@import "tailwindcss/utilities" layer(utilities);
+@import 'tailwindcss/theme' layer(theme);
+@import 'tailwindcss/utilities' layer(utilities);
 
-@source "./components";
-@source "./MCProjectsRoute.tsx";
+@source './components';
+@source './MCProjectsRoute.tsx';
 
 @theme inline {
   --color-surface: var(--color-surface);

@@ -98,9 +98,7 @@
       "pullRequests": [],
       "issues": []
     },
-    "warnings": [
-      "GITHUB_TIMEOUT"
-    ],
+    "warnings": ["GITHUB_TIMEOUT"],
     "fingerprints": {
       "HEAD": "sha256",
       "status": "sha256",

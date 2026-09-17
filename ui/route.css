@@ -5,7 +5,7 @@
  * the single owners for route geometry that was demonstrated unreliable. */
 
 /* Header — single owner of the under-header separator */
-[data-testid="mc-projects-route"] > header {
+[data-testid='mc-projects-route'] > header {
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -13,13 +13,13 @@
  * are present but the host styles `button { border-radius: var(--control-radius)!important }`
  * with equal cascade specificity; the host stylesheet comes later and wins.
  * The id-based selector raises specificity above the host rule. */
-#mc-project-header [aria-controls="project-options"] {
+#mc-project-header [aria-controls='project-options'] {
   border-radius: 0 !important;
 }
 
 /* Breadcrumb (colonna centrale): separatrice inferiore single-owner — l'utility
  * `border-b` computa 0px, stesso difetto cascade documentato in C1 (header/sidebar). */
-#mc-project-context-column [data-testid="context-breadcrumb"] {
+#mc-project-context-column [data-testid='context-breadcrumb'] {
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
@@ -60,7 +60,7 @@
 }
 #mc-project-sidebar .acc-head:has(> .tabs) .label {
   font-size: 9.5px;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
 }
 #mc-project-sidebar .acc-head:focus-visible {
   box-shadow: inset 0 0 0 1px var(--color-accent);
@@ -69,7 +69,7 @@
   color: var(--color-text-subtle);
   font-size: 12px;
   width: 12px;
-  transition: transform .15s;
+  transition: transform 0.15s;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -86,7 +86,7 @@
   font-size: 10px;
   font-weight: 650;
   text-transform: uppercase;
-  letter-spacing: .1em;
+  letter-spacing: 0.1em;
   color: var(--color-text-muted);
 }
 #mc-project-sidebar .acc-head .count {
@@ -111,10 +111,12 @@
   padding: 2px 3px;
   border-radius: 6px;
   cursor: pointer;
-  transition: background .12s, color .12s;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
 #mc-project-sidebar .acc-head .tabs button:hover {
-  background: rgba(255, 255, 255, .04);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--color-text-muted);
 }
 #mc-project-sidebar .acc-head .tabs button.active {
@@ -152,22 +154,57 @@
   flex-shrink: 0;
   font-family: var(--mono);
 }
-.status-M { background: color-mix(in srgb, var(--color-warning) 18%, transparent); color: var(--color-warning); }
-.status-A { background: color-mix(in srgb, var(--color-positive) 16%, transparent); color: var(--color-positive); }
-.status-D { background: color-mix(in srgb, var(--color-negative) 16%, transparent); color: var(--color-negative); }
-.status-R { background: color-mix(in srgb, color-mix(in srgb, var(--color-accent) 55%, var(--color-positive)) 16%, transparent); color: color-mix(in srgb, var(--color-accent) 55%, var(--color-positive)); }
-.status-U { background: color-mix(in srgb, #64748b 18%, transparent); color: #64748b; }
+.status-M {
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  color: var(--color-warning);
+}
+.status-A {
+  background: color-mix(in srgb, var(--color-positive) 16%, transparent);
+  color: var(--color-positive);
+}
+.status-D {
+  background: color-mix(in srgb, var(--color-negative) 16%, transparent);
+  color: var(--color-negative);
+}
+.status-R {
+  background: color-mix(in srgb, color-mix(in srgb, var(--color-accent) 55%, var(--color-positive)) 16%, transparent);
+  color: color-mix(in srgb, var(--color-accent) 55%, var(--color-positive));
+}
+.status-U {
+  background: color-mix(in srgb, #64748b 18%, transparent);
+  color: #64748b;
+}
 /* Densità tipografica: valori senza token consolidati qui (sweep arbitrary values) */
-.cp-10 { font-size: 10px; }
-.cp-9 { font-size: 9px; }
-.cp-11 { font-size: 11px; }
-.cp-12 { font-size: 12px; }
-.cp-13 { font-size: 13px; }
-.cp-leading-tight { line-height: 1.05; }
-.cp-mono { font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+.cp-10 {
+  font-size: 10px;
+}
+.cp-9 {
+  font-size: 9px;
+}
+.cp-11 {
+  font-size: 11px;
+}
+.cp-12 {
+  font-size: 12px;
+}
+.cp-13 {
+  font-size: 13px;
+}
+.cp-leading-tight {
+  line-height: 1.05;
+}
+.cp-mono {
+  font-family:
+    'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+}
 /* Fase 4: ultimi valori arbitrari migrati a classi (nessun arbitrary value in className) */
-.ref-max-w { max-width: 24ch; }
-.overlay-w { width: min(400px, calc(100vw - 40px)); }
+.ref-max-w {
+  max-width: 24ch;
+}
+.overlay-w {
+  width: min(400px, calc(100vw - 40px));
+}
 /* Project selector overlay (target v4): card ricche come mockup */
 #project-options .proj-card {
   display: flex;
@@ -184,8 +221,12 @@
   text-align: left;
   cursor: pointer;
 }
-#project-options .proj-card:hover { background: rgba(255, 255, 255, .04); }
-#project-options .proj-card.active { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+#project-options .proj-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+#project-options .proj-card.active {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
 #project-options .proj-card .picon {
   width: 28px;
   height: 28px;
@@ -196,9 +237,22 @@
   background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   color: var(--color-accent);
 }
-#project-options .proj-card .pname { font-size: 13px; font-weight: 600; color: var(--color-text); }
-#project-options .proj-card .premote { font-size: 11px; color: var(--color-text-muted); }
-#project-options .proj-card .pstate { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+#project-options .proj-card .pname {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+#project-options .proj-card .premote {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+#project-options .proj-card .pstate {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
 #project-options .proj-card .pchanged {
   font-size: 10.5px;
   color: var(--color-warning);
@@ -208,13 +262,18 @@
 }
 #project-options .proj-card .pbranch {
   font-size: 10.5px;
-  font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family:
+    'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 13%, transparent);
   border-radius: 999px;
   padding: 2px 7px;
 }
-#project-options .proj-card .pcheck { color: var(--color-accent); display: inline-flex; }
+#project-options .proj-card .pcheck {
+  color: var(--color-accent);
+  display: inline-flex;
+}
 /* Commit timeline (sidebar accordion): row rhythm and breathing room.
  * Padding lives here as the single owner because Tailwind's `py-1`/`px-1.5`
  * lost against the host preflight before the plugin declared its layer order
@@ -327,7 +386,9 @@
  * No horizontal padding: the icon bar is a SIBLING of this container, so any
  * inline padding here shifted the branch rows 4px right of the bar, the dots and
  * the switch control (measured 284 vs 280 on the left, 491 vs 495 on the right). */
-#mc-project-sidebar .branch-topology { padding: 2px 0 4px; }
+#mc-project-sidebar .branch-topology {
+  padding: 2px 0 4px;
+}
 /* Custom properties are scoped to the branch body and never set on :root: the
  * plugin must not restyle the host. `--mc-touch` lowers the host's unlayered
  * `button { min-height: var(--touch-target) }` (44px) for the small icon
@@ -354,7 +415,11 @@
   gap: 2px;
   padding: 4px var(--mc-gutter);
 }
-#mc-project-sidebar .branch-icon-group { display: flex; align-items: center; gap: 2px; }
+#mc-project-sidebar .branch-icon-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
 #mc-project-sidebar .branch-icon-tab {
   display: inline-flex;
   align-items: center;
@@ -371,12 +436,26 @@
   font-size: 10.5px;
   font-weight: 600;
   cursor: pointer;
-  transition: background .12s, color .12s;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
-#mc-project-sidebar .branch-icon-tab:hover { background: rgba(255,255,255,.04); color: var(--color-text-muted); }
-#mc-project-sidebar .branch-icon-tab.active { background: color-mix(in srgb, var(--color-accent) 15%, transparent); color: var(--color-accent); }
-#mc-project-sidebar .branch-icon-tab:focus-visible { outline: 1px solid var(--color-accent); outline-offset: -1px; }
-#mc-project-sidebar .branch-icon-count { font-size: 10px; opacity: .85; }
+#mc-project-sidebar .branch-icon-tab:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text-muted);
+}
+#mc-project-sidebar .branch-icon-tab.active {
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
+}
+#mc-project-sidebar .branch-icon-tab:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: -1px;
+}
+#mc-project-sidebar .branch-icon-count {
+  font-size: 10px;
+  opacity: 0.85;
+}
 /* The create action is a real action, not a passive view toggle: give it a
  * border and text-coloured ink so it reads as clickable next to the two muted
  * view toggles (it used to be identical to an inactive tab: transparent
@@ -391,18 +470,56 @@
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 /* Create modal */
-#mc-project-sidebar .branch-create-modal { display: flex; gap: 4px; margin-bottom: 4px; }
-#mc-project-sidebar .branch-create-input { min-width: 0; flex: 1; background: var(--raised); border: 1px solid var(--color-border); color: var(--color-text); font-size: 10px; padding: 3px 6px; }
-#mc-project-sidebar .branch-create-confirm { background: color-mix(in srgb, var(--color-accent) 15%, transparent); border: none; color: var(--color-accent); font-size: 10px; padding: 3px 8px; cursor: pointer; min-height: var(--mc-touch) !important; }
-#mc-project-sidebar .branch-create-confirm:disabled { opacity: .5; cursor: default; }
+#mc-project-sidebar .branch-create-modal {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+#mc-project-sidebar .branch-create-input {
+  min-width: 0;
+  flex: 1;
+  background: var(--raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 10px;
+  padding: 3px 6px;
+}
+#mc-project-sidebar .branch-create-confirm {
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  border: none;
+  color: var(--color-accent);
+  font-size: 10px;
+  padding: 3px 8px;
+  cursor: pointer;
+  min-height: var(--mc-touch) !important;
+}
+#mc-project-sidebar .branch-create-confirm:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 /* Branch row: current dot far left (vertically centred), name + sync state
  * stacked beside it, switch control on the right. `align-items: center` centres
  * the dot against the two-line text block; `stretch` would instead make the row
  * inherit the host's 44px touch target from `.bswitch` (that produced the old
  * 23px vs 50px row-height mismatch). */
-#mc-project-sidebar .branch-row { display: flex; align-items: center; gap: 10px; padding: 8px var(--mc-gutter); border-radius: 6px; cursor: pointer; }
-#mc-project-sidebar .branch-row:hover { background: rgba(255,255,255,.03); }
-#mc-project-sidebar .branch-row .branch-main { display: flex; flex-direction: column; min-width: 0; gap: 3px; flex: 1; }
+#mc-project-sidebar .branch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px var(--mc-gutter);
+  border-radius: 6px;
+  cursor: pointer;
+}
+#mc-project-sidebar .branch-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+#mc-project-sidebar .branch-row .branch-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+  flex: 1;
+}
 #mc-project-sidebar .branch-row .bname {
   font-family: var(--mono);
   font-size: 11.5px;
@@ -416,12 +533,27 @@
   overflow: hidden;
   overflow-wrap: anywhere;
 }
-#mc-project-sidebar .branch-row .bstate { font-size: 10px; font-weight: 600; line-height: 1.3; }
-#mc-project-sidebar .branch-row .bstate.state-synced { color: var(--color-positive); }
-#mc-project-sidebar .branch-row .bstate.state-ahead { color: var(--color-accent); }
-#mc-project-sidebar .branch-row .bstate.state-behind { color: var(--color-warning); }
-#mc-project-sidebar .branch-row .bstate.state-noup { color: var(--color-text-subtle); font-weight: 400; }
-#mc-project-sidebar .branch-row .branch-side { display: none; }
+#mc-project-sidebar .branch-row .bstate {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+#mc-project-sidebar .branch-row .bstate.state-synced {
+  color: var(--color-positive);
+}
+#mc-project-sidebar .branch-row .bstate.state-ahead {
+  color: var(--color-accent);
+}
+#mc-project-sidebar .branch-row .bstate.state-behind {
+  color: var(--color-warning);
+}
+#mc-project-sidebar .branch-row .bstate.state-noup {
+  color: var(--color-text-subtle);
+  font-weight: 400;
+}
+#mc-project-sidebar .branch-row .branch-side {
+  display: none;
+}
 /* Far-left current marker: green when the branch is checked out, muted otherwise.
  * `align-self: center` keeps it vertically centred against the two-line text
  * block regardless of which side is taller. */
@@ -433,10 +565,30 @@
   flex-shrink: 0;
   align-self: center;
 }
-#mc-project-sidebar .branch-row .bcurrent-dot.is-current { background: var(--color-positive); }
-#mc-project-sidebar .branch-row .bswitch { background: transparent; border: none; color: var(--color-text-subtle); cursor: pointer; padding: 0; border-radius: 4px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; min-height: var(--mc-touch) !important; min-width: var(--mc-touch) !important; }
-#mc-project-sidebar .branch-row .bswitch:hover { color: var(--color-accent); }
-#mc-project-sidebar .branch-row .bswitch:focus-visible { outline: 1px solid var(--color-accent); outline-offset: -1px; }
+#mc-project-sidebar .branch-row .bcurrent-dot.is-current {
+  background: var(--color-positive);
+}
+#mc-project-sidebar .branch-row .bswitch {
+  background: transparent;
+  border: none;
+  color: var(--color-text-subtle);
+  cursor: pointer;
+  padding: 0;
+  border-radius: 4px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--mc-touch) !important;
+  min-width: var(--mc-touch) !important;
+}
+#mc-project-sidebar .branch-row .bswitch:hover {
+  color: var(--color-accent);
+}
+#mc-project-sidebar .branch-row .bswitch:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: -1px;
+}
 
 /* Vertical separator + breathing room between sidebar and context column.
  * C4: this is the single owner — the `md:border-r` utility was removed from
