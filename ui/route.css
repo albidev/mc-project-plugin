@@ -17,6 +17,12 @@
   border-radius: 0 !important;
 }
 
+/* Breadcrumb (colonna centrale): separatrice inferiore single-owner — l'utility
+ * `border-b` computa 0px, stesso difetto cascade documentato in C1 (header/sidebar). */
+#mc-project-context-column [data-testid="context-breadcrumb"] {
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
 /* Sidebar accordion (issue #6): full-bleed, rounded-none, separatori 1px. */
 #mc-project-sidebar > section,
 #mc-project-sidebar .sidebar-acc .acc-section {
