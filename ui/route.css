@@ -224,7 +224,11 @@
  * or isolated dots in this list either. */
 #mc-project-sidebar .commit-row {
   padding: 5px 8px;
-  border-radius: 6px;
+  /* !important: the row is a <button> and the host's unlayered
+   * `button { border-radius: var(--control-radius) }` (12px) beats every
+   * @layer rule — same pattern as the overlay fix (fc26897). The mockup v4
+   * commits list uses a 6px radius. */
+  border-radius: 6px !important;
 }
 #mc-project-sidebar .commit-row:hover {
   background: color-mix(in srgb, var(--color-surface-sunken) 60%, transparent);
