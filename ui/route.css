@@ -31,24 +31,28 @@
 #mc-project-sidebar .acc-head {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
   height: 27px;
   padding: 0 4px;
   background: transparent;
   border: none;
   border-radius: 0;
-  color: var(--text);
+  color: var(--color-text);
   font: inherit;
   cursor: pointer;
   text-align: left;
   outline: none;
 }
+#mc-project-sidebar .acc-head:has(> .tabs) .label {
+  font-size: 9.5px;
+  letter-spacing: .04em;
+}
 #mc-project-sidebar .acc-head:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 #mc-project-sidebar .acc-head .chev {
-  color: var(--subtle);
+  color: var(--color-text-subtle);
   font-size: 12px;
   width: 12px;
   transition: transform .15s;
@@ -61,41 +65,47 @@
   transform: rotate(90deg);
 }
 #mc-project-sidebar .acc-head .label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 10px;
   font-weight: 650;
   text-transform: uppercase;
   letter-spacing: .1em;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 #mc-project-sidebar .acc-head .count {
   margin-left: auto;
   font-size: 10px;
-  color: var(--subtle);
+  color: var(--color-text-subtle);
 }
 #mc-project-sidebar .acc-head .tabs {
   margin-left: auto;
   display: flex;
-  gap: 4px;
+  gap: 2px;
+  min-width: 0;
   align-items: center;
+  flex-shrink: 0;
 }
 #mc-project-sidebar .acc-head .tabs button {
   background: transparent;
   border: none;
-  color: var(--subtle);
-  font-size: 10px;
+  color: var(--color-text-subtle);
+  font-size: 9.5px;
   font-weight: 600;
-  padding: 2px 7px;
+  padding: 2px 3px;
   border-radius: 6px;
   cursor: pointer;
   transition: background .12s, color .12s;
 }
 #mc-project-sidebar .acc-head .tabs button:hover {
   background: rgba(255, 255, 255, .04);
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 #mc-project-sidebar .acc-head .tabs button.active {
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
 }
 #mc-project-sidebar .acc-body {
   display: none;
@@ -115,7 +125,7 @@
   top: 2px;
   bottom: 2px;
   width: 1px;
-  background: var(--border-subtle);
+  background: var(--color-border-subtle);
 }
 #mc-project-sidebar .status {
   width: 15px;
@@ -128,13 +138,14 @@
   flex-shrink: 0;
   font-family: var(--mono);
 }
-.status-M { background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber); }
-.status-A { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
-.status-D { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
-.status-R { background: color-mix(in srgb, var(--cyan) 16%, transparent); color: var(--cyan); }
+.status-M { background: color-mix(in srgb, var(--color-warning) 18%, transparent); color: var(--color-warning); }
+.status-A { background: color-mix(in srgb, var(--color-positive) 16%, transparent); color: var(--color-positive); }
+.status-D { background: color-mix(in srgb, var(--color-negative) 16%, transparent); color: var(--color-negative); }
+.status-R { background: color-mix(in srgb, color-mix(in srgb, var(--color-accent) 55%, var(--color-positive)) 16%, transparent); color: color-mix(in srgb, var(--color-accent) 55%, var(--color-positive)); }
 .status-U { background: color-mix(in srgb, #64748b 18%, transparent); color: #64748b; }
 /* Densità tipografica: valori senza token consolidati qui (sweep arbitrary values) */
 .cp-10 { font-size: 10px; }
+.cp-9 { font-size: 9px; }
 .cp-11 { font-size: 11px; }
 .cp-12 { font-size: 12px; }
 .cp-13 { font-size: 13px; }
@@ -142,33 +153,32 @@
 .cp-mono { font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 /* Branch topology (issue #10) */
 #mc-project-sidebar .branch-topology { padding: 2px 4px 4px; }
-#mc-project-sidebar .branch-tabs-row { display: flex; gap: 4px; margin-bottom: 4px; }
-#mc-project-sidebar .branch-tab { background: transparent; border: none; color: var(--subtle); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 6px; cursor: pointer; transition: background .12s, color .12s; }
-#mc-project-sidebar .branch-tab.active { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
-#mc-project-sidebar .branch-tab:hover { background: rgba(255,255,255,.04); color: var(--muted); }
+#mc-project-sidebar .branch-tab { background: transparent; border: none; color: var(--color-text-subtle); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 6px; cursor: pointer; transition: background .12s, color .12s; }
+#mc-project-sidebar .branch-tab.active { background: color-mix(in srgb, var(--color-accent) 15%, transparent); color: var(--color-accent); }
+#mc-project-sidebar .branch-tab:hover { background: rgba(255,255,255,.04); color: var(--color-text-muted); }
 #mc-project-sidebar .branch-create-row { margin-bottom: 4px; }
-#mc-project-sidebar .branch-create { display: inline-flex; align-items: center; gap: 4px; background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 10px; padding: 2px 7px; border-radius: 6px; cursor: pointer; }
-#mc-project-sidebar .branch-create:hover { color: var(--text); }
+#mc-project-sidebar .branch-create { display: inline-flex; align-items: center; gap: 4px; background: transparent; border: 1px solid var(--color-border); color: var(--color-text-muted); font-size: 10px; padding: 2px 7px; border-radius: 6px; cursor: pointer; }
+#mc-project-sidebar .branch-create:hover { color: var(--color-text); }
 #mc-project-sidebar .branch-create-modal { display: flex; gap: 4px; margin-bottom: 4px; }
-#mc-project-sidebar .branch-create-input { min-width: 0; flex: 1; background: var(--raised); border: 1px solid var(--border); color: var(--text); font-size: 10px; padding: 3px 6px; border-radius: 6px; }
-#mc-project-sidebar .branch-create-confirm { background: color-mix(in srgb, var(--accent) 15%, transparent); border: none; color: var(--accent); font-size: 10px; padding: 3px 8px; border-radius: 6px; cursor: pointer; }
+#mc-project-sidebar .branch-create-input { min-width: 0; flex: 1; background: var(--raised); border: 1px solid var(--color-border); color: var(--color-text); font-size: 10px; padding: 3px 6px; border-radius: 6px; }
+#mc-project-sidebar .branch-create-confirm { background: color-mix(in srgb, var(--color-accent) 15%, transparent); border: none; color: var(--color-accent); font-size: 10px; padding: 3px 8px; border-radius: 6px; cursor: pointer; }
 #mc-project-sidebar .branch-create-confirm:disabled { opacity: .5; cursor: default; }
 #mc-project-sidebar .branch-row { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-radius: 6px; font-size: 11px; cursor: pointer; }
 #mc-project-sidebar .branch-row:hover { background: rgba(255,255,255,.03); }
 #mc-project-sidebar .branch-row .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-#mc-project-sidebar .branch-row .dot-synced { background: var(--green); }
-#mc-project-sidebar .branch-row .dot-ahead { background: var(--blue); }
-#mc-project-sidebar .branch-row .dot-behind { background: var(--amber); }
+#mc-project-sidebar .branch-row .dot-synced { background: var(--color-positive); }
+#mc-project-sidebar .branch-row .dot-ahead { background: var(--color-accent); }
+#mc-project-sidebar .branch-row .dot-behind { background: var(--color-warning); }
 #mc-project-sidebar .branch-row .dot-noup { background: #3d4556; }
-#mc-project-sidebar .branch-row .bname { font-family: var(--mono); font-size: 11px; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#mc-project-sidebar .branch-row .bcurrent { font-size: 9px; font-weight: 700; text-transform: uppercase; color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, transparent); border-radius: 4px; padding: 0 4px; flex-shrink: 0; }
+#mc-project-sidebar .branch-row .bname { font-family: var(--mono); font-size: 11px; color: var(--color-text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mc-project-sidebar .branch-row .bcurrent { font-size: 9px; font-weight: 700; text-transform: uppercase; color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 13%, transparent); border-radius: 4px; padding: 0 4px; flex-shrink: 0; }
 #mc-project-sidebar .branch-row .bstate { margin-left: auto; font-size: 10px; font-weight: 600; flex-shrink: 0; }
-#mc-project-sidebar .branch-row .bstate.state-synced { color: var(--green); }
-#mc-project-sidebar .branch-row .bstate.state-ahead { color: var(--blue); }
-#mc-project-sidebar .branch-row .bstate.state-behind { color: var(--amber); }
-#mc-project-sidebar .branch-row .bstate.state-noup { color: var(--subtle); font-weight: 400; }
-#mc-project-sidebar .branch-row .bswitch { background: transparent; border: none; color: var(--subtle); cursor: pointer; padding: 2px; border-radius: 4px; flex-shrink: 0; display: inline-flex; align-items: center; }
-#mc-project-sidebar .branch-row .bswitch:hover { color: var(--accent); }
+#mc-project-sidebar .branch-row .bstate.state-synced { color: var(--color-positive); }
+#mc-project-sidebar .branch-row .bstate.state-ahead { color: var(--color-accent); }
+#mc-project-sidebar .branch-row .bstate.state-behind { color: var(--color-warning); }
+#mc-project-sidebar .branch-row .bstate.state-noup { color: var(--color-text-subtle); font-weight: 400; }
+#mc-project-sidebar .branch-row .bswitch { background: transparent; border: none; color: var(--color-text-subtle); cursor: pointer; padding: 2px; border-radius: 4px; flex-shrink: 0; display: inline-flex; align-items: center; }
+#mc-project-sidebar .branch-row .bswitch:hover { color: var(--color-accent); }
 
 /* Vertical separator + breathing room between sidebar and context column.
  * C4: this is the single owner — the `md:border-r` utility was removed from

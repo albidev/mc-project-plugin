@@ -225,10 +225,10 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
     await click(host, 'button[aria-expanded="false"]');
     assert.ok(host.querySelector('[role="option"]'));
     assert.doesNotMatch(text(host), /Selected projectOther/);
-    await click(host, 'button[aria-pressed="false"]');
+    await click(host, '[data-acc-section="branches"] .tabs button:nth-child(2)');
     assert.match(text(host), /origin\/main/);
     assert.match(text(host), /DIFF/);
-    await click(host, 'button[aria-pressed="false"]');
+    await click(host, '[data-acc-section="branches"] .tabs button:nth-child(1)');
     await click(host, '[data-branch-name="main"]');
     assert.match(text(host), /HISTORY/);
     assert.match(text(host), /Initial/);

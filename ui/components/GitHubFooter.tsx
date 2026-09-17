@@ -3,7 +3,7 @@ import React from 'react'; import { ExternalLink, GitPullRequest } from 'lucide-
 export function GitHubFooter({ issues, pullRequests, status, onPullRequest, bare }: { issues: Issue[]; pullRequests: PullRequest[]; status: string; onPullRequest: (number: number) => void; bare?: boolean }) {
   if (!issues.length && !pullRequests.length) return null;
   const wrap = bare ? 'min-w-0 py-0.5' : 'grid min-w-0 gap-2';
-  const row = bare ? 'flex items-center gap-2 px-1.5 py-1 text-[11px] hover:bg-surface-sunken/60' : 'flex min-h-11 items-center gap-3 border-b border-border px-3 text-xs hover:bg-surface-sunken/40';
+  const row = bare ? 'flex items-center gap-2 px-1.5 py-1 cp-11 hover:bg-surface-sunken/60' : 'flex min-h-11 items-center gap-3 border-b border-border px-3 text-xs hover:bg-surface-sunken/40';
   const numCls = 'font-mono text-warning';
   const numPrCls = 'font-mono text-accent';
   return <div data-testid="github-section" className={wrap}>

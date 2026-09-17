@@ -19,13 +19,14 @@ function AccSection({ id, title, count, open, onToggle, children, trailing }: { 
 
 export function SidebarSections({ snapshot, focus, onSelectFile, onSelectBranch, onSelectCommit, onPullRequest, onSwitch, onCreate, mutationMessage, mutationBusy }: { snapshot: Snapshot; focus: Focus | null; onSelectFile: (p: string) => void; onSelectBranch: (n: string) => void; onSelectCommit: (h: string) => void; onPullRequest: (n: number) => void; onSwitch?: (n: string) => void; onCreate?: (n: string) => void; mutationMessage?: string; mutationBusy?: boolean }) {
   const [open, setOpen] = React.useState<Record<string, boolean>>({ files: true, branches: true, commits: false, issues: false, prs: false });
+  const [branchTab, setBranchTab] = React.useState<'local' | 'remote'>('local');
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }));
   return <div className="sidebar-acc">
     <AccSection id="files" title="Files" count={snapshot.workingTree.files?.length ?? 0} open={open.files} onToggle={() => toggle('files')}>
       <FilesTree tree={snapshot.workingTree} selected={focus?.kind === 'file' ? focus.value : undefined} onSelect={onSelectFile} />
     </AccSection>
-    <AccSection id="branches" title="Branch topology" open={open.branches} onToggle={() => toggle('branches')} trailing={<span className="tabs"><button className="active" type="button">Local {snapshot.branches.local?.length ?? 0}</button><button type="button">Remote {snapshot.branches.remote?.length ?? 0}</button></span>}>
-      <BranchTopology local={snapshot.branches.local} remote={snapshot.branches.remote} onSelect={onSelectBranch} onSwitch={onSwitch} onCreate={onCreate} mutationMessage={mutationMessage} mutationBusy={mutationBusy} />
+    <AccSection id="branches" title="Branch topology" open={open.branches} onToggle={() => toggle('branches')} trailing={<span className="tabs"><button className={branchTab === 'local' ? 'active' : ''} type="button" onClick={() => setBranchTab('local')}>Local {snapshot.branches.local?.length ?? 0}</button><button className={branchTab === 'remote' ? 'active' : ''} type="button" onClick={() => setBranchTab('remote')}>Remote {snapshot.branches.remote?.length ?? 0}</button></span>}>
+      <BranchTopology local={snapshot.branches.local} remote={snapshot.branches.remote} onSelect={onSelectBranch} onSwitch={onSwitch} onCreate={onCreate} mutationMessage={mutationMessage} mutationBusy={mutationBusy} tab={branchTab} onTabChange={setBranchTab} />
     </AccSection>
     <AccSection id="commits" title="Commits" count={snapshot.commits?.length ?? 0} open={open.commits} onToggle={() => toggle('commits')}>
       <CommitTimeline commits={snapshot.commits} onSelect={onSelectCommit} />

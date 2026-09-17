@@ -31,7 +31,7 @@ export function CommitTimeline({ commits, onSelect }: { commits: Commit[]; onSel
             <span className="font-mono text-accent">{commit.shortHash ?? commit.hash.slice(0, 7)}</span>
             <span className="text-text-subtle">{commit.author}</span>
             <time className="text-text-subtle" dateTime={date} title={date}>{relTime(date)}</time>
-            {refs.map((ref) => <span key={ref} title={ref} className="max-w-24 truncate rounded border border-border px-1 py-px text-[9px] leading-tight text-accent">{ref}</span>)}
+            {refs.map((ref) => <span key={ref} title={ref} className="max-w-24 truncate rounded border border-border px-1 py-px cp-9 leading-tight text-accent">{ref}</span>)}
             {commit.parents && commit.parents.length > 0 && <span className="text-text-subtle">parents: {commit.parents.length}</span>}
           </span>
         </span>

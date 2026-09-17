@@ -22,8 +22,10 @@ function branchStateKey(b: ProjectBranch): 'synced' | 'ahead' | 'behind' | 'noup
   return 'noup';
 }
 
-export function BranchTopology({ local, remote, onSelect, onSwitch, onCreate, mutationMessage, mutationBusy }: { local: ProjectBranch[]; remote: ProjectBranch[]; onSelect: (name: string) => void; onSwitch?: (name: string) => void; onCreate?: (name: string) => void; mutationMessage?: string; mutationBusy?: boolean }) {
-  const [tab, setTab] = React.useState<'local' | 'remote'>('local');
+export function BranchTopology({ local, remote, onSelect, onSwitch, onCreate, mutationMessage, mutationBusy, tab, onTabChange }: { local: ProjectBranch[]; remote: ProjectBranch[]; onSelect: (name: string) => void; onSwitch?: (name: string) => void; onCreate?: (name: string) => void; mutationMessage?: string; mutationBusy?: boolean; tab?: 'local' | 'remote'; onTabChange?: (t: 'local' | 'remote') => void }) {
+  const [innerTab, setInnerTab] = React.useState<'local' | 'remote'>('local');
+  const activeTab = tab ?? innerTab;
+  const setTab = onTabChange ?? setInnerTab;
   const [createOpen, setCreateOpen] = React.useState(false);
   const [createName, setCreateName] = React.useState('');
   const current = local.find((b) => b.current)?.name ?? null;
@@ -31,16 +33,12 @@ export function BranchTopology({ local, remote, onSelect, onSwitch, onCreate, mu
     if (!current) return local;
     return [...local].sort((a, b) => (a.name === current ? -1 : b.name === current ? 1 : 0));
   }, [local, current]);
-  const items = tab === 'local' ? sortedLocal : remote;
+  const items = activeTab === 'local' ? sortedLocal : remote;
   const submitCreate = () => { const v = createName.trim(); if (v && onCreate) { onCreate(v); setCreateName(''); setCreateOpen(false); } };
   return <div data-testid="branches-section" className="min-w-0">
-    <div className="branch-tabs-row">
-      <button type="button" data-testid="branches-local" className="branch-tab active" onClick={() => setTab('local')} aria-pressed={tab === 'local'}>Local {local.length}</button>
-      <button type="button" data-testid="branches-remote" className="branch-tab" onClick={() => setTab('remote')} aria-pressed={tab === 'remote'}>Remote {remote.length}</button>
-    </div>
-    {tab === 'local' && current && <div className="branch-create-row"><button type="button" className="branch-create" onClick={() => setCreateOpen(true)}><Plus size={11} />Create from {current}</button></div>}
+    {activeTab === 'local' && current && <div className="branch-create-row"><button type="button" className="branch-create" onClick={() => setCreateOpen(true)}><Plus size={11} />Create from {current}</button></div>}
     {createOpen && <div className="branch-create-modal"><input aria-label="Branch name" value={createName} onChange={(e) => setCreateName(e.currentTarget.value)} onInput={(e) => setCreateName(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter') submitCreate(); if (e.key === 'Escape') setCreateOpen(false); }} autoFocus className="branch-create-input" placeholder="feature/name" /><button type="button" disabled={!createName.trim()} onClick={submitCreate} className="branch-create-confirm">Create</button></div>}
-    <div className="branch-list">{items.map((branch) => <div key={branch.name} data-branch-name={branch.name} className={`branch-row ${branch.current ? 'current' : ''}`} onClick={() => onSelect(branch.name)} onDoubleClick={() => { if (tab === 'local' && onSwitch && branch.current !== true) onSwitch(branch.name); }}><span className={`dot dot-${branchStateKey(branch)}`} /><span className="bname">{branch.name}</span>{branch.current && <span className="bcurrent">current</span>}<span className={`bstate state-${branchStateKey(branch)}`}>{branchStateLabel(branch)}</span>{tab === 'local' && onSwitch && branch.current !== true && <button type="button" title="Switch to this branch" className="bswitch" onClick={(e) => { e.stopPropagation(); onSwitch(branch.name); }}><ArrowRightLeft size={11} /></button>}</div>)}</div>
+    <div className="branch-list">{items.map((branch) => <div key={branch.name} data-branch-name={branch.name} className={`branch-row ${branch.current ? 'current' : ''}`} onClick={() => onSelect(branch.name)} onDoubleClick={() => { if (activeTab === 'local' && onSwitch && branch.current !== true) onSwitch(branch.name); }}><span className={`dot dot-${branchStateKey(branch)}`} /><span className="bname">{branch.name}</span>{branch.current && <span className="bcurrent">current</span>}<span className={`bstate state-${branchStateKey(branch)}`}>{branchStateLabel(branch)}</span>{activeTab === 'local' && onSwitch && branch.current !== true && <button type="button" title="Switch to this branch" className="bswitch" onClick={(e) => { e.stopPropagation(); onSwitch(branch.name); }}><ArrowRightLeft size={11} /></button>}</div>)}</div>
     {mutationMessage && <div role="status" className="branch-mutation-status" aria-busy={Boolean(mutationBusy)}>{mutationMessage}</div>}
   </div>;
 }
