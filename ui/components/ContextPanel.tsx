@@ -1,18 +1,11 @@
 import React from 'react';
 import { Clock3, FileText, GitCommitHorizontal, UserRound } from 'lucide-react';
+import { Diff, Hunk, parseDiff } from 'react-diff-view';
 import type { CommitDetail, Focus, Snapshot } from '../types';
 import { GitLogTerminal } from './GitLogTerminal';
 import { StatusStates } from './StatusStates';
+import 'react-diff-view/style/index.css';
 import './ContextPanel.css';
-
-type DiffLineType = 'hunk' | 'added' | 'removed' | 'context';
-
-function classifyDiffLine(line: string): DiffLineType {
-  if (line.startsWith('@@')) return 'hunk';
-  if (line.startsWith('+') && !line.startsWith('+++')) return 'added';
-  if (line.startsWith('-') && !line.startsWith('---')) return 'removed';
-  return 'context';
-}
 
 const MONO = '"JetBrains Mono", "Cascadia Code", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 
@@ -34,26 +27,26 @@ function relativeTime(iso: string | undefined): string {
 }
 
 function DiffView({ diff, surface = true }: { diff: string; surface?: boolean }) {
+  let files: ReturnType<typeof parseDiff> = [];
+  try { files = parseDiff(diff); } catch { /* keep empty so the fallback shows raw text */ }
+  const hunks = files[0]?.hunks ?? [];
   if (!surface) {
-    return (
-      <pre style={{ fontFamily: MONO }} className="m-0 min-w-0 whitespace-pre-wrap break-all px-2 py-1 text-[11px] leading-[1.05]">
-        {diff.split('\n').map((line, index) => {
-          const type = classifyDiffLine(line);
-          const color = type === 'hunk' ? 'text-accent' : type === 'added' ? 'text-[#00e676]' : type === 'removed' ? 'text-[#ff5570]' : 'text-slate-300';
-          return <span key={`${index}-${line}`} data-diff-line-type={type} className={`block ${color}`}>{line}</span>;
-        })}
-      </pre>
-    );
+    // Compact inline rendering (commit inspector "Diff preview") — use the
+    // same parser, rendered as a simple pre when no hunk is available.
+    if (hunks.length === 0) {
+      return <pre style={{ fontFamily: MONO }} className="m-0 min-w-0 whitespace-pre-wrap break-all px-2 py-1 text-[11px] leading-[1.05] text-text-muted">{diff}</pre>;
+    }
+    return <div className="rdv-inline" style={{ fontFamily: MONO }}><Diff viewType="unified" diffType={files[0].type ?? 'modify'} hunks={hunks}>{(hs) => hs.map((hunk) => <Hunk key={hunk.content} hunk={hunk} />)}</Diff></div>;
   }
   return (
-    <div data-testid="context-diff" tabIndex={0} className="min-h-0 min-w-0 max-w-full flex-1 overflow-x-auto overflow-y-scroll overscroll-contain bg-[#08090c] px-1.5 py-1">
-      <pre style={{ fontFamily: MONO }} className="m-0 min-w-max whitespace-pre text-[11px] leading-[1.05]">
-        {diff.split('\n').map((line, index, lines) => {
-          const type = classifyDiffLine(line);
-          const color = type === 'hunk' ? 'text-accent' : type === 'added' ? 'text-[#00e676]' : type === 'removed' ? 'text-[#ff5570]' : 'text-slate-300';
-          return <React.Fragment key={`${index}-${line}`}><span data-diff-line-type={type} className={`block ${color}`}>{line}</span>{index < lines.length - 1 ? '\n' : ''}</React.Fragment>;
-        })}
-      </pre>
+    <div data-testid="context-diff" tabIndex={0} className="min-h-0 min-w-0 max-w-full flex-1 overflow-x-auto overflow-y-scroll overscroll-contain bg-surface px-1.5 py-1">
+      {hunks.length === 0 ? (
+        <pre style={{ fontFamily: MONO }} className="m-0 min-w-max whitespace-pre text-[11px] leading-[1.05] text-text-muted">{diff}</pre>
+      ) : (
+        <Diff viewType="unified" diffType={files[0].type ?? 'modify'} hunks={hunks} className="rdv-root">
+          {(hs) => hs.map((hunk) => <Hunk key={hunk.content} hunk={hunk} />)}
+        </Diff>
+      )}
     </div>
   );
 }

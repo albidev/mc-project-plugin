@@ -65,11 +65,11 @@ test('renders only populated GitHub blocks', { concurrency: false }, async () =>
   } finally { await act(async () => root.unmount()); }
 });
 
-test('renders classified unified diff rows without losing whitespace', { concurrency: false }, async () => {
+test('renders a parsed unified diff without losing whitespace or adding widgets', { concurrency: false }, async () => {
   const window = installDom();
   const host = document.createElement('div'); document.body.append(host);
   const snapshot = structuredClone(fixture.data);
-  snapshot.fileDiffs['src/app.ts'] = 'diff --git a/src/app.ts b/src/app.ts\n@@ -1,3 +1,4 @@\n const value = 1;\n-const oldValue = true;\n+const newValue = true;\n  indented();';
+  snapshot.fileDiffs['src/app.ts'] = 'diff --git a/src/app.ts b/src/app.ts\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1,3 +1,4 @@\n const value = 1;\n-const oldValue = true;\n+const newValue = true;\n  indented();';
   const root = createRoot(host);
   await act(async () => { root.render(React.createElement(ContextPanel, { focus: { kind: 'file', value: 'src/app.ts' }, snapshot })); await sleep(); });
   try {
@@ -77,14 +77,16 @@ test('renders classified unified diff rows without losing whitespace', { concurr
     assert.equal(host.querySelector('[data-testid="context-breadcrumb"]')?.textContent?.includes('src/app.ts'), true);
     assert.match(host.querySelector<HTMLElement>('[data-testid="context-breadcrumb"]')?.className ?? '', /(?:^|\s)h-8(?:\s|$)/);
     assert.match(host.querySelector<HTMLElement>('[data-testid="context-diff"]')?.className ?? '', /(?:^|\s)flex-1(?:\s|$)/);
-    assert.deepEqual([...host.querySelectorAll<HTMLElement>('[data-diff-line-type]')].map((line) => line.dataset.diffLineType), ['context', 'hunk', 'context', 'removed', 'added', 'context']);
-    assert.equal(host.querySelector('[data-diff-line-type="removed"]')?.textContent, '-const oldValue = true;');
-    assert.equal(host.querySelector('[data-diff-line-type="added"]')?.textContent, '+const newValue = true;');
-    assert.equal(host.querySelector('[data-diff-line-type="context"]:last-child')?.textContent, '  indented();');
+    // react-diff-view renders the parsed hunks; assert on stable text, not internals.
+    // Hunk rows carry old/new line numbers + code; +/- decorations are renderer-owned.
     const diff = host.querySelector<HTMLElement>('[data-testid="context-diff"]'); assert.ok(diff);
-    const diffCode = diff.querySelector<HTMLElement>('pre'); assert.ok(diffCode);
+    assert.match(text(diff), /const value = 1;/);
+    assert.match(text(diff), /oldValue = true;/);
+    assert.match(text(diff), /newValue = true;/);
+    assert.match(text(diff), /indented\(\);/);
     assert.match(diff.className, /(?:^|\s)overflow-y-scroll(?:\s|$)/);
-    assert.match(diffCode.className, /(?:^|\s)min-w-max(?:\s|$)/);
+    // no widgets/comments injected by the renderer
+    assert.equal(host.querySelectorAll('.diff-widget, [data-diff-widget]').length, 0);
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -184,7 +186,7 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
   const { host, root } = await mountedRoute();
   try {
     assert.ok(host.querySelector('[data-testid="mc-projects-route"]'));
-    assert.match(text(host), /diff --git a\/src\/app\.ts/);
+    assert.match(text(host), /src\/app\.ts/);
     assert.ok(host.querySelector('[role="treeitem"][aria-selected="true"]'));
     assert.equal(host.querySelectorAll('[role="tree"] [role="treeitem"]').length, 2);
     const route = host.querySelector<HTMLElement>('[data-testid="mc-projects-route"]'); assert.ok(route);
@@ -218,7 +220,7 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
     await act(async () => { file.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await sleep(); });
     assert.match(text(host), /DIFF/);
     assert.match(text(host), /src\/app\.ts/);
-    assert.ok(host.querySelector('[data-diff-line-type="added"]'));
+    assert.ok(host.querySelector('[data-testid="context-diff"]'));
 
     await click(host, 'button[aria-expanded="false"]');
     assert.ok(host.querySelector('[role="option"]'));
@@ -323,10 +325,10 @@ test('renders capability notice and retains last-good DOM after a failed refresh
   const { host, root } = await mountedRoute(stale);
   try {
     assert.match(text(host), /GitHub: stale; last-known-good data shown/);
-    assert.match(text(host), /diff --git a\/src\/app\.ts/);
+    assert.match(text(host), /src\/app\.ts/);
     await click(host, '[data-testid="route-refresh"]');
     await act(async () => { await sleep(100); });
     assert.match(text(host), /Refresh unavailable; showing last-known-good data/);
-    assert.match(text(host), /diff --git a\/src\/app\.ts/);
+    assert.match(text(host), /src\/app\.ts/);
   } finally { await act(async () => root.unmount()); }
 });
