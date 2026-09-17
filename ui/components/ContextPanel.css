@@ -2,7 +2,7 @@
 
 [data-testid='context-diff'] {
   scrollbar-width: thin;
-  scrollbar-color: #5b5f70 #0b0c10;
+  scrollbar-color: color-mix(in srgb, var(--color-border) 70%, var(--color-text-subtle) 30%) var(--color-surface-sunken);
 }
 
 [data-testid='context-diff']::-webkit-scrollbar,
@@ -15,21 +15,21 @@
 [data-testid='context-diff']::-webkit-scrollbar-track,
 [data-testid='git-log-scroll']::-webkit-scrollbar-track,
 [data-testid='context-commit-scroll']::-webkit-scrollbar-track {
-  background: #0b0c10;
+  background: var(--color-surface-sunken);
 }
 
 [data-testid='context-diff']::-webkit-scrollbar-thumb,
 [data-testid='git-log-scroll']::-webkit-scrollbar-thumb,
 [data-testid='context-commit-scroll']::-webkit-scrollbar-thumb {
-  background: #5b5f70;
+  background: color-mix(in srgb, var(--color-border) 70%, var(--color-text-subtle) 30%);
   border-radius: 999px;
-  border: 2px solid #0b0c10;
+  border: 2px solid var(--color-surface-sunken);
 }
 
 [data-testid='git-log-scroll'],
 [data-testid='context-commit-scroll'] {
   scrollbar-width: thin;
-  scrollbar-color: #5b5f70 #0b0c10;
+  scrollbar-color: color-mix(in srgb, var(--color-border) 70%, var(--color-text-subtle) 30%) var(--color-surface-sunken);
 }
 
 /*
@@ -43,6 +43,6 @@
 [data-testid='context-diff']:focus-visible,
 [data-testid='git-log-scroll']:focus-visible,
 [data-testid='context-commit-scroll']:focus-visible {
-  outline: 1px solid #7c3aed;
+  outline: 1px solid var(--color-accent);
   outline-offset: -1px;
 }

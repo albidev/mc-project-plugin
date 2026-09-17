@@ -1,2 +1,44 @@
-import React from 'react'; import { GitBranch, GitFork } from 'lucide-react'; import type { ProjectBranch } from '../types'; import { branchTabItems } from '../routeBehavior';
-export function BranchTopology({ local, remote, onSelect }: { local: ProjectBranch[]; remote: ProjectBranch[]; onSelect: (name: string) => void }) { const [tab, setTab] = React.useState<'local' | 'remote'>('local'); const items = branchTabItems(tab, local, remote); return <section data-testid="branches-section" className="min-w-0 rounded-[var(--control-radius)] border border-border bg-surface-raised"><div className="flex items-center justify-between border-b border-border px-3 py-2"><h2 className="flex items-center gap-2 text-sm font-semibold"><GitFork size={15} className="text-accent" />Branch topology</h2><div className="flex gap-1 text-[10px]"><button type="button" data-testid="branches-local" onClick={() => setTab('local')} aria-pressed={tab === 'local'} className={tab === 'local' ? 'rounded-full bg-accent/15 px-2 py-1 text-accent' : 'px-2 py-1 text-text-subtle'}>Local {local.length}</button><button type="button" data-testid="branches-remote" onClick={() => setTab('remote')} aria-pressed={tab === 'remote'} className={tab === 'remote' ? 'rounded-full bg-accent/15 px-2 py-1 text-accent' : 'px-2 py-1 text-text-subtle'}>Remote {remote.length}</button></div></div><div className="divide-y divide-border">{items.map((branch) => <button type="button" data-branch-name={branch.name} key={branch.name} onClick={() => onSelect(branch.name)} className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[11px] hover:bg-surface-sunken/30"><GitBranch size={12} className="text-accent" /><span className="min-w-0 flex-1 truncate font-mono">{branch.name}</span>{branch.current && <span className="text-accent">current</span>}<span className="hidden text-text-subtle sm:inline">{branch.tracking ?? 'no upstream'} · {branch.relation ?? 'unknown'} · +{branch.ahead ?? 0}/-{branch.behind ?? 0} · {branch.remoteAlias ?? 'local'} · {branch.repository ?? 'local repository'}</span></button>)}</div></section>; }
+import React from 'react';
+import { ArrowRightLeft, Plus } from 'lucide-react';
+import type { ProjectBranch } from '../types';
+
+function branchStateLabel(b: ProjectBranch): string {
+  const a = b.ahead ?? 0;
+  const d = b.behind ?? 0;
+  if (b.relation === 'up-to-date' || (a === 0 && d === 0 && b.tracking)) return 'synced';
+  if (a > 0 && d > 0) return `↑${a} ↓${d}`;
+  if (a > 0) return `↑ ${a} ahead`;
+  if (d > 0) return `↓ ${d} behind`;
+  if (b.relation === 'no-upstream' || !b.tracking) return 'no upstream';
+  return 'diverged';
+}
+
+function branchStateKey(b: ProjectBranch): 'synced' | 'ahead' | 'behind' | 'noup' {
+  const a = b.ahead ?? 0;
+  const d = b.behind ?? 0;
+  if (b.relation === 'up-to-date' || (a === 0 && d === 0 && b.tracking)) return 'synced';
+  if (a > 0 && d === 0) return 'ahead';
+  if (d > 0 && a === 0) return 'behind';
+  return 'noup';
+}
+
+export function BranchTopology({ local, remote, onSelect, onSwitch, onCreate, mutationMessage, mutationBusy, tab, onTabChange }: { local: ProjectBranch[]; remote: ProjectBranch[]; onSelect: (name: string) => void; onSwitch?: (name: string) => void; onCreate?: (name: string) => void; mutationMessage?: string; mutationBusy?: boolean; tab?: 'local' | 'remote'; onTabChange?: (t: 'local' | 'remote') => void }) {
+  const [innerTab, setInnerTab] = React.useState<'local' | 'remote'>('local');
+  const activeTab = tab ?? innerTab;
+  const setTab = onTabChange ?? setInnerTab;
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [createName, setCreateName] = React.useState('');
+  const current = local.find((b) => b.current)?.name ?? null;
+  const sortedLocal = React.useMemo(() => {
+    if (!current) return local;
+    return [...local].sort((a, b) => (a.name === current ? -1 : b.name === current ? 1 : 0));
+  }, [local, current]);
+  const items = activeTab === 'local' ? sortedLocal : remote;
+  const submitCreate = () => { const v = createName.trim(); if (v && onCreate) { onCreate(v); setCreateName(''); setCreateOpen(false); } };
+  return <div data-testid="branches-section" className="min-w-0">
+    {activeTab === 'local' && current && <div className="branch-create-row"><button type="button" className="branch-create" onClick={() => setCreateOpen(true)}><Plus size={11} />Create from {current}</button></div>}
+    {createOpen && <div className="branch-create-modal"><input aria-label="Branch name" value={createName} onChange={(e) => setCreateName(e.currentTarget.value)} onInput={(e) => setCreateName(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter') submitCreate(); if (e.key === 'Escape') setCreateOpen(false); }} autoFocus className="branch-create-input" placeholder="feature/name" /><button type="button" disabled={!createName.trim()} onClick={submitCreate} className="branch-create-confirm">Create</button></div>}
+    <div className="branch-list">{items.map((branch) => <div key={branch.name} data-branch-name={branch.name} className={`branch-row ${branch.current ? 'current' : ''}`} onClick={() => onSelect(branch.name)} onDoubleClick={() => { if (activeTab === 'local' && onSwitch && branch.current !== true) onSwitch(branch.name); }}><span className={`dot dot-${branchStateKey(branch)}`} /><span className="bname">{branch.name}</span>{branch.current && <span className="bcurrent">current</span>}<span className={`bstate state-${branchStateKey(branch)}`}>{branchStateLabel(branch)}</span>{activeTab === 'local' && onSwitch && branch.current !== true && <button type="button" title="Switch to this branch" className="bswitch" onClick={(e) => { e.stopPropagation(); onSwitch(branch.name); }}><ArrowRightLeft size={11} /></button>}</div>)}</div>
+    {mutationMessage && <div role="status" className="branch-mutation-status" aria-busy={Boolean(mutationBusy)}>{mutationMessage}</div>}
+  </div>;
+}
