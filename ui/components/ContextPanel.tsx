@@ -156,7 +156,7 @@ function DiffView({ diff, viewType = 'unified', onViewTypeChange, compact }: { d
           title="Torna in cima"
           onClick={scrollToTop}
           onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); scrollToTop(); } }}
-          className="absolute bottom-3 right-3 z-30 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-border bg-surface-raised text-text-muted shadow-lg hover:bg-accent hover:text-surface hover:shadow-xl"
+          className="sticky bottom-3 z-30 ml-auto mb-3 mr-3 flex h-8 w-8 cursor-pointer items-center justify-center self-end rounded-full border border-border bg-surface-raised text-text-muted shadow-lg hover:bg-accent hover:text-surface hover:shadow-xl"
         >
           <ArrowUp size={16} />
         </div>
