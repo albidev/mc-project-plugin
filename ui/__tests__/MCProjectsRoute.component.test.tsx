@@ -206,9 +206,15 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
       assert.equal(item.dataset.hitAreaMin, '24');
     }
 
-    // branch rows still expose contextual mutation affordances without the old mutation block
-    const branchCreate = host.querySelector<HTMLElement>('.branch-create');
-    assert.ok(branchCreate, 'contextual create-from-current row exists');
+    // branch rows still expose contextual mutation affordances without the old mutation block.
+    // Local/Remote/Create now live INSIDE the accordion body as an icon bar, not as header tabs:
+    // as header buttons the host's unlayered `button { min-height: var(--touch-target) }`
+    // forced them to 44px inside a 27px header (measured: 17px overflow over the title).
+    assert.equal(host.querySelector('[data-acc-section="branches"] .acc-head .tabs'), null, 'branch tabs were removed from the header');
+    const iconbar = host.querySelector<HTMLElement>('.branch-iconbar');
+    assert.ok(iconbar, 'branch icon bar exists inside the accordion body');
+    assert.equal(host.querySelectorAll('.branch-iconbar .branch-icon-tab').length, 3, 'Local, Remote and Create are all present as icons');
+    assert.ok(host.querySelector('.branch-iconbar .branch-icon-action'), 'create-from-current is an icon action');
     assert.equal(host.querySelector('[data-testid="mutation-section"]'), null);
 
     const folder = host.querySelector<HTMLElement>('[data-tree-path="src"]'); assert.ok(folder);
@@ -225,10 +231,10 @@ test('mounts the route and exercises real rendered files, branches, context, PR 
     await click(host, 'button[aria-expanded="false"]');
     assert.ok(host.querySelector('[role="option"]'));
     assert.doesNotMatch(text(host), /Selected projectOther/);
-    await click(host, '[data-acc-section="branches"] .tabs button:nth-child(2)');
+    await click(host, '[data-acc-section="branches"] .branch-iconbar button:nth-child(2)');
     assert.match(text(host), /origin\/main/);
     assert.match(text(host), /DIFF/);
-    await click(host, '[data-acc-section="branches"] .tabs button:nth-child(1)');
+    await click(host, '[data-acc-section="branches"] .branch-iconbar button:nth-child(1)');
     await click(host, '[data-branch-name="main"]');
     assert.match(text(host), /HISTORY/);
     assert.match(text(host), /Initial/);
@@ -275,7 +281,7 @@ test('renders mobile order and verifies enabled mutation POST plus snapshot read
     const positions = sections.map((id) => [...host.querySelectorAll('[data-testid]')].findIndex((node) => node.getAttribute('data-testid') === id));
     assert.deepEqual([...positions].sort((a, b) => a - b), positions);
     // contextual create-from-current modal exposes the branch name input
-    const createButton = host.querySelector<HTMLButtonElement>('.branch-create'); assert.ok(createButton);
+    const createButton = host.querySelector<HTMLButtonElement>('.branch-iconbar .branch-icon-action'); assert.ok(createButton, 'create-from-current icon action exists');
     await act(async () => { createButton.click(); await sleep(); });
     const input = host.querySelector<HTMLInputElement>('input[aria-label="Branch name"]'); assert.ok(input);
     await act(async () => { Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(input, 'feature/test'); input.dispatchEvent(new window.Event('input', { bubbles: true })); input.dispatchEvent(new window.Event('change', { bubbles: true })); await sleep(); });
