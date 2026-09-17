@@ -168,7 +168,8 @@
   width: 100%;
   padding: 8px 10px;
   border: none;
-  border-radius: 8px;
+  /* host `button { border-radius: var(--control-radius)!important }` vince: !important necessario (come trigger) */
+  border-radius: 8px !important;
   background: transparent;
   color: var(--color-text);
   font: inherit;
