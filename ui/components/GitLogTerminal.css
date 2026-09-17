@@ -8,6 +8,14 @@
   box-sizing: border-box;
 }
 
+/* Aria a sinistra per il grafo e le righe del log: il grafo parte a filo col
+ * bordo della colonna centrale (0px), mentre il breadcrumb sopra ha 8px.
+ * Il padding vive sul contenitore scroll così grafo e tabella si spostano
+ * insieme e restano allineati tra loro. */
+[data-testid='git-log-scroll'] {
+  padding-left: 8px;
+}
+
 [data-testid='git-log-terminal'] [data-testid='left-down-curve-bottom-line'],
 [data-testid='git-log-terminal'] [data-testid='left-up-curve-top-line'] {
   left: calc(50% - 3px) !important;
