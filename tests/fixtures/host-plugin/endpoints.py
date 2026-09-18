@@ -31,3 +31,7 @@ def listTree(body, params, auth):
 
 def readFile(body, params, auth):
     return {"ok": True, "handler": "readFile"}
+
+
+def readFileRaw(body, params, auth):
+    return {"ok": True, "handler": "readFileRaw"}

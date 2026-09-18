@@ -18,6 +18,7 @@ const manifest: HostPluginManifest = {
     { method: 'POST', path: '/mc-project-plugin/projects/branch/create', handler: 'createBranch', authRequired: true },
     { method: 'GET', path: '/mc-project-plugin/projects/tree', handler: 'listTree', authRequired: true },
     { method: 'GET', path: '/mc-project-plugin/projects/file', handler: 'readFile', authRequired: true },
+    { method: 'GET', path: '/mc-project-plugin/projects/file/raw', handler: 'readFileRaw', authRequired: true },
   ],
 }
 

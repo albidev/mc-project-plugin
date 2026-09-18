@@ -4,6 +4,7 @@ import type {
   CommitDetail,
   CommitDetailFile,
   FileEntry,
+  FileRawResponse,
   FileResponse,
   Issue,
   ProjectBranch,
@@ -833,6 +834,23 @@ export const validFileContent = (value: unknown): value is FileResponse =>
   typeof value.binary === 'boolean' &&
   (value.content === undefined || (typeof value.content === 'string' && utf8Length(value.content) <= MAX_FILE_BYTES))
 
+export const validFileRaw = (value: unknown): value is FileRawResponse =>
+  hasRequiredKeys(
+    value,
+    ['path', 'contentType', 'size', 'contentBase64', 'truncated'],
+    ['path', 'contentType', 'size', 'contentBase64', 'truncated'],
+  ) &&
+  string(value.path, 1024) &&
+  pathDepth(value.path) &&
+  relativePath(value.path) &&
+  string(value.contentType, 128) &&
+  nonNegativeInteger(value.size) &&
+  value.size <= MAX_FILE_BYTES &&
+  typeof value.contentBase64 === 'string' &&
+  value.contentBase64.length > 0 &&
+  value.contentBase64.length <= MAX_FILE_BYTES * 2 &&
+  value.truncated === false
+
 export const projectsApi = {
   async catalog(): Promise<ProjectSummary[]> {
     const data = await request<unknown>('/catalog')
@@ -919,5 +937,41 @@ export const projectsApi = {
     const data = await request<unknown>(`/file?project_id=${encodeURIComponent(projectId)}&path=${encodeURIComponent(path)}`)
     if (!validFileContent(data)) throw new ApiError('INVALID_RESPONSE')
     return data
+  },
+  async fileRaw(projectId: string, path: string): Promise<Blob> {
+    // Dedicated transport: returns a Blob, not the JSON envelope data.
+    // request() unwraps {ok,data,meta} and would lose the raw byte stream.
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+    try {
+      const headers = new Headers()
+      headers.set('Accept', 'application/json')
+      const token = window.localStorage.getItem('mission-control-token')
+      if (token) headers.set('Authorization', `Bearer ${token}`)
+      const response = await fetch(
+        `${API_ROOT}/file/raw?project_id=${encodeURIComponent(projectId)}&path=${encodeURIComponent(path)}`,
+        { headers, signal: controller.signal },
+      )
+      let payload: unknown
+      try {
+        payload = await response.json()
+      } catch {
+        payload = null
+      }
+      if (!response.ok) throw safeError(response, payload)
+      const data = unwrap<unknown>(response, payload)
+      if (!validFileRaw(data)) throw new ApiError('INVALID_RESPONSE')
+      const binaryString = atob(data.contentBase64)
+      const bytes = new Uint8Array(binaryString.length)
+      for (let index = 0; index < binaryString.length; index += 1) bytes[index] = binaryString.charCodeAt(index)
+      return new Blob([bytes], { type: data.contentType })
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      if (error instanceof DOMException && error.name === 'AbortError')
+        throw new ApiError('TIMEOUT', 'The request timed out.')
+      throw new ApiError('NETWORK')
+    } finally {
+      window.clearTimeout(timer)
+    }
   },
 }

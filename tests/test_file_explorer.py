@@ -231,3 +231,105 @@ def test_read_file_directory_is_rejected(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
     with pytest.raises(ValueError, match="NOT_ALLOWED"):
         file_explorer.read_file(root, "src")
+
+
+# ---------------------------------------------------------------------------
+# read_file_raw (#34)
+# ---------------------------------------------------------------------------
+
+def _tiny_png() -> bytes:
+    # Minimal 1x1 PNG: valid header, IHDR, IDAT, IEND.
+    # This is a hand-built PNG fixture that browsers/decoders accept as PNG.
+    import base64 as _b64
+    return _b64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"
+        "YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+    )
+
+
+def test_read_file_raw_png_content_type_and_hash(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    payload = _tiny_png()
+    (root / "img.png").write_bytes(payload)
+    result = file_explorer.read_file_raw(root, "img.png")
+    assert result["path"] == "img.png"
+    assert result["contentType"] == "image/png"
+    assert result["size"] == len(payload)
+    assert result["truncated"] is False
+    import base64 as _b64
+    encoded = result["contentBase64"]
+    assert isinstance(encoded, str)
+    assert _b64.b64decode(encoded) == payload
+
+
+def test_read_file_raw_pdf_content_type(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    payload = b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n"
+    (root / "doc.pdf").write_bytes(payload)
+    result = file_explorer.read_file_raw(root, "doc.pdf")
+    assert result["contentType"] == "application/pdf"
+    assert result["truncated"] is False
+
+
+def test_read_file_raw_unknown_extension_is_octet_stream(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    payload = b"\x00\x01\x02arbitrary"
+    (root / "blob.xyz").write_bytes(payload)
+    result = file_explorer.read_file_raw(root, "blob.xyz")
+    assert result["contentType"] == "application/octet-stream"
+    import base64 as _b64
+    encoded = result["contentBase64"]
+    assert isinstance(encoded, str)
+    assert _b64.b64decode(encoded) == payload
+
+
+def test_read_file_raw_empty_file(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    (root / "empty.bin").write_bytes(b"")
+    result = file_explorer.read_file_raw(root, "empty.bin")
+    assert result["size"] == 0
+    assert result["contentBase64"] == ""
+    assert result["truncated"] is False
+
+
+def test_read_file_raw_over_cap_raises_payload_too_large(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    payload = b"x" * (file_explorer.MAX_FILE_BYTES + 1)
+    (root / "big.bin").write_bytes(payload)
+    with pytest.raises(ValueError, match="PAYLOAD_TOO_LARGE"):
+        file_explorer.read_file_raw(root, "big.bin")
+
+
+def test_read_file_raw_exactly_at_cap_ok(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    payload = b"b" * file_explorer.MAX_FILE_BYTES
+    (root / "cap.bin").write_bytes(payload)
+    result = file_explorer.read_file_raw(root, "cap.bin")
+    assert result["size"] == file_explorer.MAX_FILE_BYTES
+    assert result["truncated"] is False
+
+
+def test_read_file_raw_containment_and_exclusions(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    for blocked in (".git", "node_modules", ".git/config", "..", "src/../x", "/etc/passwd", "src"):
+        with pytest.raises(ValueError, match="NOT_ALLOWED"):
+            file_explorer.read_file_raw(root, blocked)
+
+
+def test_read_file_raw_symlink_escape_rejected_and_inside_allowed(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    outside = tmp_path / "outside.bin"
+    outside.write_bytes(b"secret-bytes")
+    (root / "leak.bin").symlink_to(outside)
+    with pytest.raises(ValueError, match="NOT_ALLOWED"):
+        file_explorer.read_file_raw(root, "leak.bin")
+    (root / "link.png").symlink_to(root / "README.md")
+    result = file_explorer.read_file_raw(root, "link.png")
+    # Content-Type follows the filename extension, not the content (contract).
+    assert result["contentType"] == "image/png"
+
+
+def test_read_file_raw_missing_raises_file_not_found(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    with pytest.raises(FileNotFoundError):
+        file_explorer.read_file_raw(root, "missing.bin")

@@ -32,6 +32,7 @@ EXPECTED_ENDPOINTS = [
     {"method": "POST", "path": "/mc-project-plugin/projects/branch/create", "handler": "createBranch", "authRequired": True},
     {"method": "GET", "path": "/mc-project-plugin/projects/tree", "handler": "listTree", "authRequired": True},
     {"method": "GET", "path": "/mc-project-plugin/projects/file", "handler": "readFile", "authRequired": True},
+    {"method": "GET", "path": "/mc-project-plugin/projects/file/raw", "handler": "readFileRaw", "authRequired": True},
 ]
 
 
@@ -72,7 +73,7 @@ print(json.dumps({
     "plugin_dir": str(loader.get_plugin_dir("mc-project-plugin")),
     "resolved_dir": str(loader.get_plugin_dir("mc-project-plugin").resolve()),
     "manifest": manifest,
-    "handlers": sorted(name for name in ("listProjects", "getSnapshot", "getCommitDetail", "getPullRequestDetail", "switchBranch", "createBranch", "listTree", "readFile") if hasattr(module, name)),
+    "handlers": sorted(name for name in ("listProjects", "getSnapshot", "getCommitDetail", "getPullRequestDetail", "switchBranch", "createBranch", "listTree", "readFile", "readFileRaw") if hasattr(module, name)),
     "responses": responses,
 }))
 """

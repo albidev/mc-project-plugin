@@ -165,6 +165,78 @@ def test_file_endpoint_rejects_containment_breakout(tmp_path: Path, monkeypatch:
     assert (exc.value.code, exc.value.status_code) == ("NOT_ALLOWED", 403)
 
 
+def test_file_raw_endpoint_contract_boundaries() -> None:
+    with pytest.raises(ServiceError, match="UNAUTHENTICATED"):
+        endpoints.readFileRaw({}, {})
+    with pytest.raises(ServiceError, match="INVALID_REQUEST"):
+        endpoints.readFileRaw({"unexpected": True}, {}, None)
+    with pytest.raises(ServiceError, match="INVALID_REQUEST"):
+        endpoints.readFileRaw({}, {"project_id": ["demo"], "unknown": ["x"]}, None)
+    with pytest.raises(ServiceError, match="INVALID_REQUEST"):
+        endpoints.readFileRaw({}, {"project_id": ["demo"]}, None)
+    with pytest.raises(ServiceError, match="INVALID_REQUEST"):
+        endpoints.readFileRaw({}, {"project_id": ["demo"], "path": ["a", "b"]}, None)
+    with pytest.raises(ServiceError, match="INVALID_REQUEST"):
+        endpoints.readFileRaw({}, {"project_id": ["demo"], "path": ["/etc/passwd"]}, None)
+    with pytest.raises(ServiceError, match="INVALID_REQUEST"):
+        endpoints.readFileRaw({}, {"project_id": ["demo"], "path": [".."]}, None)
+
+
+def _write_binary(root: Path, rel: str, payload: bytes) -> None:
+    target = root / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(payload)
+
+
+def test_file_raw_endpoint_returns_base64_with_content_type(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import base64
+
+    _make_git_repo(tmp_path)
+    payload = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    _write_binary(tmp_path, "img.png", payload)
+    registry = Registry((tmp_path,), (), epoch=4)
+    monkeypatch.setattr(endpoints, "resolve_context", lambda _registry, _project_id: _context_for(tmp_path))
+    monkeypatch.setattr(endpoints, "_runtime", lambda: (registry, object()))
+    result = endpoints.readFileRaw({}, {"project_id": ["demo"], "path": ["img.png"]}, None)
+    assert result["ok"] is True
+    data = result["data"]
+    assert isinstance(data, dict)
+    assert data["path"] == "img.png"
+    assert data["contentType"] == "image/png"
+    assert data["size"] == len(payload)
+    assert data["truncated"] is False
+    assert base64.b64decode(data["contentBase64"]) == payload
+
+
+def test_file_raw_endpoint_maps_payload_too_large_to_413(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _make_git_repo(tmp_path)
+    _write_binary(tmp_path, "big.bin", b"x" * (262_144 + 1))
+    registry = Registry((tmp_path,), (), epoch=4)
+    monkeypatch.setattr(endpoints, "resolve_context", lambda _registry, _project_id: _context_for(tmp_path))
+    monkeypatch.setattr(endpoints, "_runtime", lambda: (registry, object()))
+    with pytest.raises(ServiceError) as exc:
+        endpoints.readFileRaw({}, {"project_id": ["demo"], "path": ["big.bin"]}, None)
+    assert (exc.value.code, exc.value.status_code) == ("PAYLOAD_TOO_LARGE", 413)
+
+
+def test_file_raw_endpoint_maps_not_allowed_and_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _make_git_repo(tmp_path)
+    registry = Registry((tmp_path,), (), epoch=4)
+    monkeypatch.setattr(endpoints, "resolve_context", lambda _registry, _project_id: _context_for(tmp_path))
+    monkeypatch.setattr(endpoints, "_runtime", lambda: (registry, object()))
+    with pytest.raises(ServiceError) as exc:
+        endpoints.readFileRaw({}, {"project_id": ["demo"], "path": [".git/config"]}, None)
+    assert (exc.value.code, exc.value.status_code) == ("NOT_ALLOWED", 403)
+    with pytest.raises(ServiceError) as exc:
+        endpoints.readFileRaw({}, {"project_id": ["demo"], "path": ["missing.bin"]}, None)
+    assert (exc.value.code, exc.value.status_code) == ("NOT_FOUND", 404)
+
+
+def test_payload_too_large_maps_to_413_in_error_table() -> None:
+    error = service_error_from(ServiceError("PAYLOAD_TOO_LARGE", 413))
+    assert (error.code, error.status_code) == ("PAYLOAD_TOO_LARGE", 413)
+
+
 def _context_for(path: Path):
     from repository_context import RepositoryContext, resolve_context
     return RepositoryContext(

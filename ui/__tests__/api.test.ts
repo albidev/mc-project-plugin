@@ -7,6 +7,7 @@ import {
   ApiError,
   projectsApi,
   validCommitDetail,
+  validFileRaw,
   validPullRequestDetail,
   validIssue,
   validPullRequest,
@@ -369,6 +370,83 @@ test('#27 readFile API rejects a response missing truncation/binary flags', asyn
     globalThis.fetch = async () => ok(partial)
     await assert.rejects(
       projectsApi.readFile('demo', 'ui/api.ts'),
+      (error: unknown) => error instanceof ApiError && error.code === 'INVALID_RESPONSE',
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+// ---------------------------------------------------------------------------
+// fileRaw (#34)
+// ---------------------------------------------------------------------------
+
+const fileRawFixture = {
+  path: 'img.png',
+  contentType: 'image/png',
+  size: 4,
+  contentBase64: Buffer.from('test', 'utf8').toString('base64'),
+  truncated: false,
+}
+
+test('#34 validFileRaw accepts an exact valid payload', () => {
+  assert.equal(validFileRaw(fileRawFixture), true)
+})
+
+test('#34 validFileRaw rejects truncated, extra, negative size, and invalid base64', () => {
+  assert.equal(validFileRaw({ ...fileRawFixture, truncated: true }), false)
+  assert.equal(validFileRaw({ ...fileRawFixture, extra: true }), false)
+  assert.equal(validFileRaw({ ...fileRawFixture, size: -1 }), false)
+  assert.equal(validFileRaw({ ...fileRawFixture, size: 262_145 }), false)
+  assert.equal(validFileRaw({ ...fileRawFixture, contentBase64: '' }), false)
+  assert.equal(validFileRaw({ ...fileRawFixture, contentBase64: 42 }), false)
+  assert.equal(validFileRaw({ ...fileRawFixture, path: '../escape.png' }), false)
+})
+
+test('#34 fileRaw returns a Blob with the declared content type and bytes', async () => {
+  const originalFetch = globalThis.fetch
+  try {
+    globalThis.fetch = async () => ok(fileRawFixture)
+    const blob = await projectsApi.fileRaw('demo', 'img.png')
+    assert.equal(blob.type, 'image/png')
+    const decoded = new TextDecoder().decode(await blob.arrayBuffer())
+    assert.equal(decoded, 'test')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('#34 fileRaw surfaces HTTP errors as ApiError with codes', async () => {
+  const originalFetch = globalThis.fetch
+  try {
+    const errorEnvelope = (status: number, payload: unknown) =>
+      new Response(JSON.stringify(payload), { status })
+    globalThis.fetch = async () => errorEnvelope(413, { error: 'PAYLOAD_TOO_LARGE' })
+    await assert.rejects(
+      projectsApi.fileRaw('demo', 'big.bin'),
+      (error: unknown) => error instanceof ApiError && error.code === 'PAYLOAD_TOO_LARGE',
+    )
+    globalThis.fetch = async () => errorEnvelope(404, { error: 'NOT_FOUND' })
+    await assert.rejects(
+      projectsApi.fileRaw('demo', 'missing.bin'),
+      (error: unknown) => error instanceof ApiError && error.code === 'NOT_FOUND',
+    )
+    globalThis.fetch = async () => errorEnvelope(403, { error: 'NOT_ALLOWED' })
+    await assert.rejects(
+      projectsApi.fileRaw('demo', 'node_modules/x'),
+      (error: unknown) => error instanceof ApiError && error.code === 'NOT_ALLOWED',
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('#34 fileRaw rejects a malformed envelope as INVALID_RESPONSE', async () => {
+  const originalFetch = globalThis.fetch
+  try {
+    globalThis.fetch = async () => ok({ ...fileRawFixture, contentBase64: 42 })
+    await assert.rejects(
+      projectsApi.fileRaw('demo', 'img.png'),
       (error: unknown) => error instanceof ApiError && error.code === 'INVALID_RESPONSE',
     )
   } finally {
