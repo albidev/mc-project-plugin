@@ -9,6 +9,7 @@ import { createRoot } from 'react-dom/client'
 import MCProjectsRoute from '../MCProjectsRoute.tsx'
 import { ContextPanel } from '../components/ContextPanel.tsx'
 import { GitHubFooter } from '../components/GitHubFooter.tsx'
+import { ProjectSelector } from '../components/ProjectSelector.tsx'
 
 const fixture = JSON.parse(
   readFileSync(
@@ -1052,6 +1053,139 @@ test(
       )
       await click(host, '[data-testid="context-breadcrumb-branch"]')
       assert.ok(host.querySelector('[data-testid="context-branch-log"]'))
+    } finally {
+      await act(async () => root.unmount())
+    }
+  },
+)
+
+test(
+  'project selector: trigger aligned via shared grid, flat overlay, owner/repo secondary field',
+  { concurrency: false },
+  async () => {
+    const { host, root } = await mountedRoute()
+    try {
+      // Header and body share the same grid template class: one width source.
+      const header = host.querySelector<HTMLElement>('#mc-project-header')
+      const body = host.querySelector<HTMLElement>('[data-testid="mc-projects-route"] > .workspace-grid')
+      assert.ok(header, 'header exists')
+      assert.ok(header.className.includes('workspace-grid'), 'header uses the shared grid class (issue #24)')
+      assert.ok(body, 'body uses the shared grid class')
+      assert.ok(body.className.includes('workspace-grid'), 'body uses the shared grid class (issue #24)')
+
+      // Trigger secondary field: normalized owner/repo from the snapshot URL,
+      // never the remote alias 'origin'.
+      const trigger = host.querySelector<HTMLElement>('#mc-project-header [aria-controls="project-options"]')
+      assert.ok(trigger, 'trigger exists')
+      assert.ok(trigger.textContent?.includes('example/repo'), 'trigger shows owner/repo normalized from snapshot')
+      assert.equal(trigger.textContent?.includes('origin'), false, 'trigger never shows the remote alias')
+
+      // Open the overlay.
+      await click(host, '#mc-project-header [aria-controls="project-options"]')
+      const overlay = host.querySelector<HTMLElement>('#project-options')
+      assert.ok(overlay, 'overlay opens')
+      assert.equal(
+        overlay.classList.contains('shadow-lg') || overlay.classList.contains('rounded-lg'),
+        false,
+        'overlay is flat: no shadow, no rounded card',
+      )
+      assert.equal(overlay.classList.contains('overlay-w'), false, 'overlay no longer uses the fixed 400px width')
+      // Trigger-bound width: anchored left and right of the trigger.
+      assert.ok(overlay.className.includes('left-0') && overlay.className.includes('right-0'))
+
+      // The dropdown lists the active project first plus the other candidates:
+      // demo (catalog slug present) and other (repository null -> project_id).
+      const cards = [...host.querySelectorAll<HTMLElement>('#project-options [role="option"]')]
+      assert.equal(cards.length, 2, 'active plus the other candidate are listed')
+      const demoCard = cards.find((c) => c.getAttribute('data-value') === 'demo')
+      const otherCard = cards.find((c) => c.getAttribute('data-value') === 'other')
+      assert.ok(demoCard, 'demo card present')
+      assert.ok(otherCard, 'other card present')
+      assert.ok(demoCard.textContent?.includes('imbundle/mc-project-plugin'), 'demo card shows the catalog slug')
+      assert.equal(demoCard.textContent?.includes('origin'), false, 'cards never show the remote alias')
+      assert.ok(otherCard.textContent?.includes('other'), 'card with null repository falls back to project_id')
+      assert.ok(host.querySelector('#project-options .pbranch'), 'branch pill preserved')
+      assert.ok(demoCard.querySelector('.pcheck'), 'active card keeps the check')
+    } finally {
+      await act(async () => root.unmount())
+    }
+  },
+)
+
+test(
+  'project selector renders card repository slugs and keeps the active check standalone',
+  { concurrency: false },
+  async () => {
+    installDom()
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = createRoot(host)
+    const projects = [
+      {
+        project_id: 'repoful',
+        name: 'Repoful',
+        enabled: true,
+        remote: 'origin',
+        default_branch: 'main',
+        repository: 'imbundle/mc-project-plugin',
+      },
+      { project_id: 'noner', name: 'Noner', enabled: true, remote: 'origin', default_branch: 'main', repository: null },
+    ]
+    await act(async () => {
+      root.render(
+        React.createElement(ProjectSelector, {
+          active: {
+            project_id: 'active',
+            name: 'Active',
+            enabled: true,
+            remote: 'origin',
+            default_branch: 'main',
+            repository: 'imbundle/active-repo',
+          },
+          projects,
+          open: true,
+          onToggle: () => undefined,
+          onSelect: () => undefined,
+          activeBranch: 'main',
+          activeChanged: 2,
+          activeRepository: 'example/repo',
+        }),
+      )
+      await sleep()
+    })
+    try {
+      const trigger = host.querySelector<HTMLElement>('[aria-controls="project-options"]')
+      assert.ok(trigger, 'trigger exists')
+      assert.ok(trigger.textContent?.includes('example/repo'), 'trigger uses the normalized prop')
+      assert.equal(trigger.textContent?.includes('origin'), false, 'trigger never shows the remote alias')
+      const repoful = host.querySelector<HTMLElement>('[data-value="repoful"]')
+      const noner = host.querySelector<HTMLElement>('[data-value="noner"]')
+      assert.ok(repoful, 'repoful card exists')
+      assert.ok(noner, 'noner card exists')
+      assert.ok(repoful.textContent?.includes('imbundle/mc-project-plugin'), 'card shows the catalog slug')
+      assert.ok(noner.textContent?.includes('noner'), 'card with null repository falls back to project_id')
+      assert.ok(repoful.querySelector('.pbranch'), 'branch pill preserved on cards')
+      const activeCard = host.querySelector<HTMLElement>('[data-value="active"]')
+      assert.ok(activeCard, 'active card exists in standalone render')
+      assert.ok(activeCard.querySelector('.pcheck'), 'active card keeps the check')
+    } finally {
+      await act(async () => root.unmount())
+    }
+  },
+)
+
+test(
+  'project selector trigger falls back to project_id when snapshot repository is absent',
+  { concurrency: false },
+  async () => {
+    const withoutRepository = structuredClone(fixture.data)
+    delete withoutRepository.project.repository
+    const { host, root } = await mountedRoute(withoutRepository)
+    try {
+      const trigger = host.querySelector<HTMLElement>('#mc-project-header [aria-controls="project-options"]')
+      assert.ok(trigger, 'trigger exists')
+      assert.ok(trigger.textContent?.includes('demo'), 'trigger falls back to the active project_id')
+      assert.equal(trigger.textContent?.includes('origin'), false, 'never the remote alias')
     } finally {
       await act(async () => root.unmount())
     }

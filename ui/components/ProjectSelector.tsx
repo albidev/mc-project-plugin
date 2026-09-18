@@ -10,6 +10,7 @@ export function ProjectSelector({
   onSelect,
   activeBranch,
   activeChanged,
+  activeRepository,
 }: {
   active?: ProjectSummary
   projects: ProjectSummary[]
@@ -18,6 +19,7 @@ export function ProjectSelector({
   onSelect: (id: string) => void
   activeBranch?: string
   activeChanged?: number
+  activeRepository?: string
 }) {
   const containerRef = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
@@ -67,7 +69,7 @@ export function ProjectSelector({
             {active?.name ?? 'No project selected'}
           </span>
           <span className="cp-11 text-text-muted block truncate leading-tight">
-            {active?.remote ?? active?.project_id ?? '—'}
+            {activeRepository ?? active?.project_id ?? '—'}
           </span>
         </span>
         <ChevronDown
@@ -78,7 +80,7 @@ export function ProjectSelector({
       {open && (
         <div
           id="project-options"
-          className="overlay-w border-border bg-surface-raised absolute top-full right-0 left-0 z-50 mt-1.5 rounded-lg border p-2 shadow-lg"
+          className="border-border bg-surface-raised absolute top-full right-0 left-0 z-50 mt-1.5 border p-2"
           role="listbox"
           aria-label="Other projects"
         >
@@ -101,7 +103,7 @@ export function ProjectSelector({
                 </span>
                 <span className="min-w-0">
                   <span className="pname block truncate">{project.name}</span>
-                  <span className="premote block truncate">{project.remote}</span>
+                  <span className="premote block truncate">{project.repository ?? project.project_id}</span>
                 </span>
                 <span className="pstate">
                   {changed !== undefined && <span className="pchanged">{changed} changed</span>}
