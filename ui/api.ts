@@ -4,6 +4,7 @@ import type {
   CommitDetail,
   CommitDetailFile,
   FileEntry,
+  FileResponse,
   Issue,
   ProjectBranch,
   ProjectSummary,
@@ -11,6 +12,8 @@ import type {
   PullRequestCheck,
   PullRequestDetail,
   Snapshot,
+  TreeEntry,
+  TreeResponse,
 } from './types'
 import { safeHttpsUrl } from './models'
 
@@ -25,6 +28,7 @@ const MAX_DETAIL_FILES = 500
 const MAX_DETAIL_CHECKS = 100
 const MAX_DETAIL_NAMES = 100
 const MAX_STRING = 4096
+const MAX_FILE_BYTES = 262_144
 
 export class ApiError extends Error {
   readonly code: string
@@ -803,6 +807,32 @@ function cleanSnapshot(value: Snapshot): Snapshot {
   }
 }
 
+const treeEntry = (value: unknown): value is TreeEntry =>
+  hasRequiredKeys(value, ['name', 'path', 'type'], ['name', 'path', 'type']) &&
+  string(value.name, 256) &&
+  string(value.path, 1024) &&
+  pathDepth(value.path) &&
+  relativePath(value.path) &&
+  (value.type === 'dir' || value.type === 'file')
+
+export const validTree = (value: unknown): value is TreeResponse =>
+  hasRequiredKeys(value, ['path', 'entries', 'truncated'], ['path', 'entries', 'truncated']) &&
+  string(value.path, 1024) &&
+  pathDepth(value.path) &&
+  relativePath(value.path) &&
+  boundedArray(value.entries, MAX_FILES, treeEntry) &&
+  typeof value.truncated === 'boolean'
+
+export const validFileContent = (value: unknown): value is FileResponse =>
+  hasRequiredKeys(value, ['path', 'size', 'truncated', 'binary'], ['path', 'size', 'content', 'truncated', 'binary']) &&
+  string(value.path, 1024) &&
+  pathDepth(value.path) &&
+  relativePath(value.path) &&
+  nonNegativeInteger(value.size) &&
+  typeof value.truncated === 'boolean' &&
+  typeof value.binary === 'boolean' &&
+  (value.content === undefined || (typeof value.content === 'string' && utf8Length(value.content) <= MAX_FILE_BYTES))
+
 export const projectsApi = {
   async catalog(): Promise<ProjectSummary[]> {
     const data = await request<unknown>('/catalog')
@@ -878,5 +908,16 @@ export const projectsApi = {
     })
     if (!validMutationResponse(result, projectId, name, true)) throw new ApiError('INVALID_MUTATION_RESPONSE')
     return result
+  },
+  async tree(projectId: string, path = ''): Promise<TreeResponse> {
+    const suffix = path ? `&path=${encodeURIComponent(path)}` : ''
+    const data = await request<unknown>(`/tree?project_id=${encodeURIComponent(projectId)}${suffix}`)
+    if (!validTree(data)) throw new ApiError('INVALID_RESPONSE')
+    return data
+  },
+  async readFile(projectId: string, path: string): Promise<FileResponse> {
+    const data = await request<unknown>(`/file?project_id=${encodeURIComponent(projectId)}&path=${encodeURIComponent(path)}`)
+    if (!validFileContent(data)) throw new ApiError('INVALID_RESPONSE')
+    return data
   },
 }

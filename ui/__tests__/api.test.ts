@@ -243,3 +243,135 @@ test('catalog still requires a non-empty remote (#25 regression guard)', async (
     (error: unknown) => error instanceof ApiError && error.code === 'INVALID_RESPONSE',
   )
 })
+
+// ---------------------------------------------------------------------------
+// tree / readFile (#27)
+// ---------------------------------------------------------------------------
+
+const treeFixture = {
+  path: 'ui',
+  entries: [
+    { name: 'api.ts', path: 'ui/api.ts', type: 'file' },
+    { name: 'components', path: 'ui/components', type: 'dir' },
+  ],
+  truncated: false,
+}
+
+test('#27 tree API accepts a valid tree envelope and returns it', async () => {
+  const originalFetch = globalThis.fetch
+  try {
+    globalThis.fetch = async () => ok(treeFixture)
+    const tree = await projectsApi.tree('demo')
+    assert.deepEqual(tree, treeFixture)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('#27 tree API rejects an oversized entries array (beyond MAX_FILES)', async () => {
+  const originalFetch = globalThis.fetch
+  try {
+    const huge = structuredClone(treeFixture)
+    huge.entries = Array.from({ length: 2001 }, (_, i) => ({ name: `f${i}`, path: `ui/f${i}`, type: 'file' }))
+    globalThis.fetch = async () => ok(huge)
+    await assert.rejects(
+      projectsApi.tree('demo'),
+      (error: unknown) => error instanceof ApiError && error.code === 'INVALID_RESPONSE',
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('#27 tree API rejects an entry with an unknown type', async () => {
+  const originalFetch = globalThis.fetch
+  try {
+    const badType = structuredClone(treeFixture)
+    badType.entries[0].type = 'link'
+    globalThis.fetch = async () => ok(badType)
+    await assert.rejects(
+      projectsApi.tree('demo'),
+      (error: unknown) => error instanceof ApiError && error.code === 'INVALID_RESPONSE',
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+const fileFixture = {
+  path: 'ui/api.ts',
+  size: 10,
+  content: 'export const',
+  truncated: false,
+  binary: false,
+}
+
+test('#27 readFile API accepts a valid file envelope', async () => {
+  const originalFetch = globalThis.fetch
+  try {
+    globalThis.fetch = async () => ok(fileFixture)
+    const file = await projectsApi.readFile('demo', 'ui/api.ts')
+    assert.deepEqual(file, fileFixture)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('#27 readFile API accepts binary without content and truncated content at the cap boundary', async () => {
+  const originalFetch = globalThis.fetch
+  try {
+    globalThis.fetch = async () =>
+      ok({ path: 'bin.dat', size: 64, truncated: false, binary: true })
+    const binary = await projectsApi.readFile('demo', 'bin.dat')
+    assert.equal(binary.binary, true)
+    assert.equal(binary.content, undefined)
+
+    const capped = {
+      path: 'big.txt',
+      size: 262_144,
+      content: 'x'.repeat(262_144),
+      truncated: true,
+      binary: false,
+    }
+    globalThis.fetch = async () => ok(capped)
+    const file = await projectsApi.readFile('demo', 'big.txt')
+    assert.equal(file.truncated, true)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('#27 readFile API rejects content beyond the byte cap and a negative size', async () => {
+  const originalFetch = globalThis.fetch
+  try {
+    globalThis.fetch = async () =>
+      ok({ path: 'big.txt', size: 262_145, content: 'x'.repeat(262_145), truncated: false, binary: false })
+    await assert.rejects(
+      projectsApi.readFile('demo', 'big.txt'),
+      (error: unknown) => error instanceof ApiError && error.code === 'INVALID_RESPONSE',
+    )
+    globalThis.fetch = async () =>
+      ok({ path: 'a.txt', size: -1, content: 'x', truncated: false, binary: false })
+    await assert.rejects(
+      projectsApi.readFile('demo', 'a.txt'),
+      (error: unknown) => error instanceof ApiError && error.code === 'INVALID_RESPONSE',
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('#27 readFile API rejects a response missing truncation/binary flags', async () => {
+  const originalFetch = globalThis.fetch
+  try {
+    const partial = structuredClone(fileFixture)
+    delete (partial as Record<string, unknown>).binary
+    globalThis.fetch = async () => ok(partial)
+    await assert.rejects(
+      projectsApi.readFile('demo', 'ui/api.ts'),
+      (error: unknown) => error instanceof ApiError && error.code === 'INVALID_RESPONSE',
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

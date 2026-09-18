@@ -23,3 +23,11 @@ def switchBranch(body, params, auth):
 
 def createBranch(body, params, auth):
     return {"ok": True, "handler": "createBranch"}
+
+
+def listTree(body, params, auth):
+    return {"ok": True, "handler": "listTree"}
+
+
+def readFile(body, params, auth):
+    return {"ok": True, "handler": "readFile"}

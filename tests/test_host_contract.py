@@ -30,6 +30,8 @@ EXPECTED_ENDPOINTS = [
     {"method": "GET", "path": "/mc-project-plugin/projects/pull-request", "handler": "getPullRequestDetail", "authRequired": True},
     {"method": "POST", "path": "/mc-project-plugin/projects/branch/switch", "handler": "switchBranch", "authRequired": True},
     {"method": "POST", "path": "/mc-project-plugin/projects/branch/create", "handler": "createBranch", "authRequired": True},
+    {"method": "GET", "path": "/mc-project-plugin/projects/tree", "handler": "listTree", "authRequired": True},
+    {"method": "GET", "path": "/mc-project-plugin/projects/file", "handler": "readFile", "authRequired": True},
 ]
 
 
@@ -70,7 +72,7 @@ print(json.dumps({
     "plugin_dir": str(loader.get_plugin_dir("mc-project-plugin")),
     "resolved_dir": str(loader.get_plugin_dir("mc-project-plugin").resolve()),
     "manifest": manifest,
-    "handlers": sorted(name for name in ("listProjects", "getSnapshot", "getCommitDetail", "getPullRequestDetail", "switchBranch", "createBranch") if hasattr(module, name)),
+    "handlers": sorted(name for name in ("listProjects", "getSnapshot", "getCommitDetail", "getPullRequestDetail", "switchBranch", "createBranch", "listTree", "readFile") if hasattr(module, name)),
     "responses": responses,
 }))
 """

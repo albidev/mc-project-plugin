@@ -147,3 +147,20 @@ export interface Snapshot {
 }
 export type FocusKind = 'file' | 'branch' | 'commit'
 export type Focus = { kind: FocusKind; value: string }
+export interface TreeEntry {
+  name: string
+  path: string
+  type: 'dir' | 'file'
+}
+export interface TreeResponse {
+  path: string
+  entries: TreeEntry[]
+  truncated: boolean
+}
+export interface FileResponse {
+  path: string
+  size: number
+  content?: string
+  truncated: boolean
+  binary: boolean
+}
