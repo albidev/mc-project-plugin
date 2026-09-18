@@ -29,6 +29,7 @@ def test_public_error_table_normalizes_canonical_statuses() -> None:
     assert (service_error_from(ServiceError("GIT_ARGUMENTS_NOT_ALLOWED", 502)).code, service_error_from(ServiceError("GIT_ARGUMENTS_NOT_ALLOWED", 502)).status_code) == ("GIT_ARGUMENTS_NOT_ALLOWED", 400)
     assert service_error_from(GitAdapterError("INVALID_NOT_CANONICAL")).code == "INVALID_REQUEST"
     assert service_error_from(GitHubAdapterError("INVALID_NOT_CANONICAL")).code == "INVALID_REQUEST"
+    assert service_error_from(ServiceError("NOT_ALLOWED", 403)).status_code == 403
 
 
 
@@ -79,6 +80,101 @@ def test_mutations_validate_strict_body_before_execution(endpoint, body):
                                       for key, value in body.items()}, {}, None)
     with pytest.raises(ServiceError, match="UNKNOWN_PROJECT"):
         getattr(endpoints, endpoint)(body, {}, None)
+
+
+def _make_git_repo(root: Path) -> None:
+    import subprocess
+
+    def git(*args: str) -> None:
+        subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True, text=True)
+
+    (root / "src").mkdir(parents=True)
+    (root / "src" / "a.ts").write_text("export const a = 1\n", encoding="utf-8")
+    (root / "README.md").write_text("# repo\n", encoding="utf-8")
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test")
+    git("add", ".")
+    git("commit", "-q", "-m", "init")
+    git("remote", "add", "origin", "https://github.com/example/repo.git")
+
+
+def test_tree_endpoint_contract_boundaries() -> None:
+    with pytest.raises(ServiceError, match="UNAUTHENTICATED"):
+        endpoints.listTree({}, {})
+    with pytest.raises(ServiceError, match="INVALID_REQUEST"):
+        endpoints.listTree({"unexpected": True}, {}, None)
+    with pytest.raises(ServiceError, match="INVALID_REQUEST"):
+        endpoints.listTree({}, {"project_id": ["demo"], "unknown": ["x"]}, None)
+    with pytest.raises(ServiceError, match="INVALID_REQUEST"):
+        endpoints.listTree({}, {"project_id": ["demo", "other"]}, None)
+    with pytest.raises(ServiceError, match="INVALID_REQUEST"):
+        endpoints.listTree({}, {"project_id": ["demo"], "path": [".."]}, None)
+
+
+def test_file_endpoint_contract_boundaries() -> None:
+    with pytest.raises(ServiceError, match="UNAUTHENTICATED"):
+        endpoints.readFile({}, {})
+    with pytest.raises(ServiceError, match="INVALID_REQUEST"):
+        endpoints.readFile({}, {"project_id": ["demo"]}, None)
+    with pytest.raises(ServiceError, match="INVALID_REQUEST"):
+        endpoints.readFile({}, {"project_id": ["demo"], "path": ["a", "b"]}, None)
+    with pytest.raises(ServiceError, match="INVALID_REQUEST"):
+        endpoints.readFile({}, {"project_id": ["demo"], "path": ["/etc/passwd"]}, None)
+
+
+def test_tree_endpoint_lists_real_worktree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _make_git_repo(tmp_path)
+    registry = Registry((tmp_path,), (), epoch=4)
+    monkeypatch.setattr(endpoints, "resolve_context", lambda _registry, _project_id: _context_for(tmp_path))
+    monkeypatch.setattr(endpoints, "_runtime", lambda: (registry, object()))
+    result = endpoints.listTree({}, {"project_id": ["demo"], "path": ["."]}, None)
+    assert result["ok"] is True
+    data = result["data"]
+    assert data["path"] == "."
+    assert data["truncated"] is False
+    names = [entry["name"] for entry in data["entries"]]
+    assert "src" in names and "README.md" in names
+    assert ".git" not in names and "node_modules" not in names
+
+
+def test_file_endpoint_reads_bounded_content(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _make_git_repo(tmp_path)
+    registry = Registry((tmp_path,), (), epoch=4)
+    monkeypatch.setattr(endpoints, "resolve_context", lambda _registry, _project_id: _context_for(tmp_path))
+    monkeypatch.setattr(endpoints, "_runtime", lambda: (registry, object()))
+    result = endpoints.readFile({}, {"project_id": ["demo"], "path": ["src/a.ts"]}, None)
+    assert result["ok"] is True
+    data = result["data"]
+    assert data["content"] == "export const a = 1\n"
+    assert data["binary"] is False
+    assert data["truncated"] is False
+    assert data["size"] == len(b"export const a = 1\n")
+
+
+def test_file_endpoint_rejects_containment_breakout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _make_git_repo(tmp_path)
+    registry = Registry((tmp_path,), (), epoch=4)
+    monkeypatch.setattr(endpoints, "resolve_context", lambda _registry, _project_id: _context_for(tmp_path))
+    monkeypatch.setattr(endpoints, "_runtime", lambda: (registry, object()))
+    with pytest.raises(ServiceError) as exc:
+        endpoints.readFile({}, {"project_id": ["demo"], "path": [".."]}, None)
+    assert (exc.value.code, exc.value.status_code) == ("INVALID_REQUEST", 400)
+    with pytest.raises(ServiceError) as exc:
+        endpoints.readFile({}, {"project_id": ["demo"], "path": [".git/config"]}, None)
+    assert (exc.value.code, exc.value.status_code) == ("NOT_ALLOWED", 403)
+
+
+def _context_for(path: Path):
+    from repository_context import RepositoryContext, resolve_context
+    return RepositoryContext(
+        project_id="demo",
+        name="Demo",
+        path=path,
+        remote="origin",
+        default_branch="main",
+        remote_url="https://github.com/example/repo.git",
+    )
 
 
 @pytest.mark.parametrize("endpoint, params", [
