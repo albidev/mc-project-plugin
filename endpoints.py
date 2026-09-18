@@ -7,14 +7,15 @@ from datetime import datetime, timezone
 import re
 import secrets
 import threading
+import time
 
 from config import load_default_registry
 from errors import ServiceError, service_error_from
 from branch_mutations import BranchMutationService, validate_branch_name
-from github_adapter import GitHubAdapter
+from github_adapter import GitHubAdapter, GitHubAdapterError, repository_from_remote
 from git_adapter import GitAdapter
-from registry import Registry
-from repository_context import resolve_context
+from registry import ProjectRecord, Registry
+from repository_context import RepositoryContextError, resolve_context
 from service import ProjectService
 
 _MISSING = object()
@@ -132,11 +133,42 @@ def _ok(data: object) -> dict[str, object]:
     }
 
 
+_CATALOG_DERIVATION_BUDGET_SECONDS = 1.0
+
+
+def _catalog_repository(registry: Registry, record: ProjectRecord, deadline: float) -> str | None:
+    """Public owner/repo identity for one project, or None when not derivable.
+
+    Absorbs the two expected derivation failures plus the path-resolution errors
+    that repository_context.py can let escape (see plan D12). Anything else
+    propagates to `_run`, which keeps the plugin's public error contract unchanged.
+    """
+    if time.monotonic() >= deadline:
+        return None
+    try:
+        context = resolve_context(registry, record.project_id)
+        return repository_from_remote(context.remote_url)
+    except (RepositoryContextError, GitHubAdapterError, OSError, RuntimeError):
+        return None
+
+
 def listProjects(body: dict[str, Any], params: Mapping[str, list[str]], auth: object = _MISSING) -> dict[str, object]:
     _auth(auth)
     _get_body(body)
     _params(params, set())
-    return _run(lambda: _ok([{"project_id": p.project_id, "name": p.name, "enabled": p.enabled, "remote": p.remote, "default_branch": p.default_branch} for p in _runtime()[0].projects if p.enabled]))
+
+    def operation() -> dict[str, object]:
+        registry, _ = _runtime()
+        deadline = time.monotonic() + _CATALOG_DERIVATION_BUDGET_SECONDS
+        items = [
+            {"project_id": p.project_id, "name": p.name, "enabled": p.enabled,
+             "remote": p.remote, "default_branch": p.default_branch,
+             "repository": _catalog_repository(registry, p, deadline)}
+            for p in registry.projects if p.enabled
+        ]
+        return _ok(items)
+
+    return _run(operation)
 
 def getSnapshot(body: dict[str, Any], params: Mapping[str, list[str]], auth: object = _MISSING) -> dict[str, object]:
     _auth(auth); _get_body(body)
