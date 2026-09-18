@@ -334,6 +334,8 @@ const routeApi = (snapshots, overrides = {}) => ({
   pullRequest: async () => ({ detail: true }),
   switchBranch: async () => ({ verified: true, generation: 2 }),
   createBranch: async () => ({ verified: true, generation: 2 }),
+  tree: async () => ({ path: '', entries: [], truncated: false }),
+  readFile: async () => ({ path: 'x', size: 1, content: 'x', truncated: false, binary: false }),
   ...overrides,
 })
 
@@ -488,4 +490,105 @@ test('same-project refresh generations reject an older response', async () => {
   oldRead.resolve({ ...original, snapshotId: 'snap-old' })
   await older
   assert.equal(controller.getState().snapshot?.snapshotId, 'snap-new')
+})
+
+test('#28 mode defaults to git and setMode switches and clears code state', async () => {
+  const controller = createRouteController(routeApi({ demo: snapshot() }))
+  await controller.mount()
+  assert.equal(controller.getState().mode, 'git')
+  controller.setMode('code')
+  assert.equal(controller.getState().mode, 'code')
+  controller.setMode('git')
+  assert.equal(controller.getState().mode, 'git')
+  assert.equal(controller.getState().codePath, undefined)
+  assert.equal(controller.getState().codeFile, undefined)
+})
+
+test('#28 selectProject resets mode to git and discards code state', async () => {
+  const first = snapshot()
+  const controller = createRouteController(routeApi({ demo: first, other: { ...first, project_id: 'other', snapshotId: 'o' } }))
+  await controller.mount()
+  controller.setMode('code')
+  await controller.openCodeFile('src/app.ts')
+  assert.equal(controller.getState().mode, 'code')
+  assert.equal(controller.getState().codePath, 'src/app.ts')
+  await controller.selectProject('other')
+  assert.equal(controller.getState().mode, 'git')
+  assert.equal(controller.getState().codePath, undefined)
+  assert.equal(controller.getState().codeFile, undefined)
+  assert.equal(controller.getState().activeId, 'other')
+})
+
+test('#28 openCodeFile loads the file and surfaces errors', async () => {
+  const okController = createRouteController(
+    routeApi(
+      { demo: snapshot() },
+      { readFile: async () => ({ path: 'src/app.ts', size: 2, content: 'hi', truncated: false, binary: false }) },
+    ),
+  )
+  await okController.mount()
+  okController.setMode('code')
+  await okController.openCodeFile('src/app.ts')
+  assert.equal(okController.getState().codeFile?.content, 'hi')
+  assert.equal(okController.getState().codeLoading, false)
+  const failController = createRouteController(
+    routeApi(
+      { demo: snapshot() },
+      {
+        readFile: async () => {
+          throw new ApiError('NOT_FOUND', 'File not found.', 404)
+        },
+      },
+    ),
+  )
+  await failController.mount()
+  failController.setMode('code')
+  await failController.openCodeFile('missing.ts')
+  assert.equal(failController.getState().codeError?.code, 'NOT_FOUND')
+  assert.equal(failController.getState().codeLoading, false)
+})
+
+test('#28 openCodeFile is a no-op without an active project or outside code mode', async () => {
+  let calls = 0
+  const controller = createRouteController(
+    routeApi(
+      { demo: snapshot() },
+      {
+        readFile: async () => {
+          calls += 1
+          return { path: 'x', size: 1, content: 'x', truncated: false, binary: false }
+        },
+      },
+    ),
+  )
+  await controller.mount()
+  await controller.openCodeFile('src/app.ts')
+  assert.equal(calls, 0)
+  controller.setMode('code')
+  await controller.openCodeFile('src/app.ts')
+  assert.equal(calls, 1)
+})
+
+test('#28 a stale readFile response cannot repopulate code state after switching to git', async () => {
+  let resolveRead
+  const pending = new Promise((resolve) => {
+    resolveRead = resolve
+  })
+  const controller = createRouteController(
+    routeApi(
+      { demo: snapshot() },
+      {
+        readFile: async () =>
+          pending.then(() => ({ path: 'src/app.ts', size: 2, content: 'stale', truncated: false, binary: false })),
+      },
+    ),
+  )
+  await controller.mount()
+  controller.setMode('code')
+  const inflight = controller.openCodeFile('src/app.ts')
+  controller.setMode('git')
+  resolveRead()
+  await inflight
+  assert.equal(controller.getState().mode, 'git')
+  assert.equal(controller.getState().codeFile, undefined)
 })
