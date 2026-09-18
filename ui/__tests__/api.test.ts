@@ -182,3 +182,64 @@ test('detail API methods validate and clean accepted responses', async () => {
     globalThis.fetch = originalFetch
   }
 })
+
+const catalogEntry = (extra: Record<string, unknown> = {}) => ({
+  project_id: 'demo',
+  name: 'Demo',
+  enabled: true,
+  remote: 'origin',
+  default_branch: 'main',
+  ...extra,
+})
+
+async function withCatalog<T>(data: unknown, run: () => Promise<T>): Promise<T> {
+  const originalFetch = globalThis.fetch
+  try {
+    globalThis.fetch = async () => ok(data)
+    return await run()
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+}
+
+test('catalog accepts the legacy 5-key envelope without repository (#25)', async () => {
+  const projects = await withCatalog([catalogEntry()], () => projectsApi.catalog())
+  assert.equal(projects.length, 1)
+  assert.equal(projects[0].remote, 'origin')
+  assert.equal(projects[0].repository, undefined)
+})
+
+test('catalog propagates repository for both owner/repo and null (#25)', async () => {
+  const projects = await withCatalog(
+    [
+      catalogEntry({ repository: 'imbundle/mc-project-plugin' }),
+      catalogEntry({ project_id: 'other', repository: null }),
+    ],
+    () => projectsApi.catalog(),
+  )
+  assert.deepEqual(
+    projects.map(({ project_id, remote, repository }) => ({ project_id, remote, repository })),
+    [
+      { project_id: 'demo', remote: 'origin', repository: 'imbundle/mc-project-plugin' },
+      { project_id: 'other', remote: 'origin', repository: null },
+    ],
+  )
+})
+
+test('catalog rejects a foreign key and a non-string repository (#25)', async () => {
+  await assert.rejects(
+    withCatalog([catalogEntry({ injected: 'x' })], () => projectsApi.catalog()),
+    (error: unknown) => error instanceof ApiError && error.code === 'INVALID_RESPONSE',
+  )
+  await assert.rejects(
+    withCatalog([catalogEntry({ repository: 42 })], () => projectsApi.catalog()),
+    (error: unknown) => error instanceof ApiError && error.code === 'INVALID_RESPONSE',
+  )
+})
+
+test('catalog still requires a non-empty remote (#25 regression guard)', async () => {
+  await assert.rejects(
+    withCatalog([catalogEntry({ remote: '' })], () => projectsApi.catalog()),
+    (error: unknown) => error instanceof ApiError && error.code === 'INVALID_RESPONSE',
+  )
+})

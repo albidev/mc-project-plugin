@@ -65,8 +65,22 @@ async function mountedRoute(snapshot = fixture.data, allowReadBack = false) {
     const url = String(input)
     if (url.endsWith('/catalog'))
       return response([
-        { project_id: 'demo', name: 'Demo', enabled: true, remote: 'origin', default_branch: 'main' },
-        { project_id: 'other', name: 'Other', enabled: true, remote: 'origin', default_branch: 'main' },
+        {
+          project_id: 'demo',
+          name: 'Demo',
+          enabled: true,
+          remote: 'origin',
+          default_branch: 'main',
+          repository: 'imbundle/mc-project-plugin',
+        },
+        {
+          project_id: 'other',
+          name: 'Other',
+          enabled: true,
+          remote: 'origin',
+          default_branch: 'main',
+          repository: null,
+        },
       ])
     if (url.includes('/snapshot?')) {
       snapshotReads += 1

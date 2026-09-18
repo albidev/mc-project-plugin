@@ -120,13 +120,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 function project(value: unknown): value is ProjectSummary {
   return (
-    record(value) &&
-    exactKeys(value, ['project_id', 'name', 'enabled', 'remote', 'default_branch']) &&
+    hasRequiredKeys(
+      value,
+      ['project_id', 'name', 'enabled', 'default_branch'],
+      ['project_id', 'name', 'enabled', 'remote', 'default_branch', 'repository'],
+    ) &&
     string(value.project_id, 64) &&
     string(value.name, 256) &&
     typeof value.enabled === 'boolean' &&
     string(value.remote, 512) &&
-    string(value.default_branch, 256)
+    string(value.default_branch, 256) &&
+    optionalString(value.repository, 512)
   )
 }
 const pathDepth = (value: string): boolean => value.split('/').length <= 32
@@ -805,12 +809,13 @@ export const projectsApi = {
     if (!boundedArray(data, MAX_PROJECTS, project)) throw new ApiError('INVALID_RESPONSE')
     return data
       .filter((item) => item.enabled)
-      .map(({ project_id, name, enabled, remote, default_branch }) => ({
+      .map(({ project_id, name, enabled, remote, default_branch, repository }) => ({
         project_id,
         name,
         enabled,
         remote,
         default_branch,
+        repository,
       }))
   },
   async snapshot(projectId: string, recovery = false): Promise<Snapshot> {

@@ -26,6 +26,7 @@ export interface ProjectSummary {
   enabled: boolean
   remote: string
   default_branch: string
+  repository?: string | null
 }
 export interface FileEntry {
   path: string
