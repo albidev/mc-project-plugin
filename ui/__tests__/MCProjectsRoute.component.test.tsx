@@ -41,6 +41,8 @@ function installDom() {
     document: window.document,
     HTMLElement: window.HTMLElement,
     DOMException: window.DOMException,
+    MutationObserver: window.MutationObserver,
+    ResizeObserver: window.ResizeObserver,
     getComputedStyle: window.getComputedStyle.bind(window),
   })
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: window.navigator })
@@ -1244,11 +1246,12 @@ test('#28 code mode renders tree and viewer and resets on mode change', { concur
     assert.ok(host.querySelector('[data-testid="code-tree-row"][data-tree-path="README.md"]'))
     await click(host, '[data-tree-path="README.md"][data-tree-kind="file"]')
     await act(async () => {
-      await sleep(50)
+      await sleep(600)
     })
     assert.ok(host.querySelector('[data-testid="code-content"]'))
+    assert.ok(host.querySelector('[data-testid="code-content"] .cm-content'))
+    assert.ok(host.querySelectorAll('[data-testid="code-content"] .cm-line').length > 0)
     assert.match(text(host), /# repo/)
-    assert.ok(host.querySelectorAll('[data-testid="code-content"] .code-line').length > 0)
     await click(host, '[data-mode="git"]')
     assert.ok(host.querySelector('[data-testid="files-section"]'))
     assert.equal(host.querySelector('[data-testid="code-tree"]'), null)

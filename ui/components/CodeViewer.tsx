@@ -1,11 +1,12 @@
 import React from 'react'
+import CodeMirror from '@uiw/react-codemirror'
+import { oneDark } from '@codemirror/theme-one-dark'
+import { foldGutter, bracketMatching } from '@codemirror/language'
+import { lineNumbers } from '@codemirror/view'
 import type { ApiError } from '../api'
 import type { FileResponse } from '../types'
 import { StatusStates } from './StatusStates'
-
-function lineContent(content: string): string[] {
-  return content.split('\n')
-}
+import { languageForPath } from './codeLanguages'
 
 function CodeViewerBreadcrumb({ path }: { path?: string }) {
   return (
@@ -50,7 +51,7 @@ export function CodeViewer({
             Binary file; preview not available.
           </div>
         ) : file?.content !== undefined ? (
-          <div className="code-viewer-scroll min-h-0 flex-1 overflow-auto">
+          <div data-testid="code-content" className="code-viewer-scroll min-h-0 flex-1 overflow-auto">
             {file.truncated && (
               <div
                 data-testid="code-truncated"
@@ -60,14 +61,15 @@ export function CodeViewer({
                 File truncated (first 262144 bytes shown).
               </div>
             )}
-            <pre data-testid="code-content" className="text-text-muted m-0 min-w-max px-2 py-1 font-mono text-xs leading-relaxed whitespace-pre">
-              {lineContent(file.content).map((line, index) => (
-                <span key={index} className="code-line">
-                  {line}
-                  {'\n'}
-                </span>
-              ))}
-            </pre>
+            <CodeMirror
+              value={file.content}
+              readOnly
+              theme={oneDark}
+              height="100%"
+              basicSetup={false}
+              extensions={[lineNumbers(), foldGutter(), bracketMatching(), languageForPath(path)]}
+              style={{ height: '100%' }}
+            />
           </div>
         ) : (
           <div className="text-text-muted p-4 font-mono text-xs" role="status">
