@@ -7,6 +7,9 @@ import { ProjectSelector } from './components/ProjectSelector'
 import { SidebarSections } from './components/SidebarSections'
 import { ContextPanel } from './components/ContextPanel'
 import { StatusStates } from './components/StatusStates'
+import { WorkspaceModeTabs } from './components/WorkspaceModeTabs'
+import { CodeTree } from './components/CodeTree'
+import { CodeViewer } from './components/CodeViewer'
 
 function CapabilityNotice({ name, capability }: { name: string; capability?: Snapshot['capabilities'][string] }) {
   if (!capability || capability.status === 'ready' || capability.status === 'empty') return null
@@ -45,6 +48,11 @@ export default function MCProjectsRoute() {
     mutationBusy,
     mutationMessage,
     selectedCommitHash,
+    mode,
+    codePath,
+    codeFile,
+    codeLoading,
+    codeError,
   } = route
   const active = catalog.find((project) => project.project_id === activeId)
   const selectProject = controller.selectProject
@@ -90,6 +98,9 @@ export default function MCProjectsRoute() {
           activeChanged={snapshot.workingTree.files?.length}
           activeRepository={repositoryName(snapshot.project.repository ?? '') ?? active.project_id}
         />
+        <div className="min-w-0 shrink-0 items-center px-2">
+          <WorkspaceModeTabs mode={mode} onChange={controller.setMode} />
+        </div>
       </header>
       {loading && (
         <div className="border-border cp-11 text-text-muted shrink-0 border-b px-4 py-1" role="status">
@@ -102,55 +113,75 @@ export default function MCProjectsRoute() {
         </div>
       )}
       <div className="workspace-grid min-h-0 flex-1 md:overflow-hidden">
-        <aside
-          id="mc-project-sidebar"
-          className="min-w-0 space-y-2 border-b p-2 md:min-h-0 md:overflow-y-auto md:border-b-0"
-        >
-          <CapabilityNotice
-            name="working tree"
-            capability={snapshot.capabilities.workingTree as Snapshot['capabilities'][string]}
-          />
-          <CapabilityNotice
-            name="branches"
-            capability={snapshot.capabilities.branches as Snapshot['capabilities'][string]}
-          />
-          <CapabilityNotice
-            name="commits"
-            capability={snapshot.capabilities.commits as Snapshot['capabilities'][string]}
-          />
-          <CapabilityNotice
-            name="branch logs"
-            capability={snapshot.capabilities.branchLogs as Snapshot['capabilities'][string]}
-          />
-          <CapabilityNotice
-            name="GitHub"
-            capability={snapshot.capabilities.github as Snapshot['capabilities'][string]}
-          />
-          <SidebarSections
-            snapshot={snapshot}
-            focus={focus}
-            mutationMessage={mutationMessage}
-            mutationBusy={mutationBusy}
-            selectedCommitHash={selectedCommitHash}
-            onSelectFile={(path) => void selectFocus({ kind: 'file', value: path })}
-            onSelectBranch={(name) => void selectFocus({ kind: 'branch', value: name })}
-            onSelectCommit={(hash) => void selectFocus({ kind: 'commit', value: hash })}
-            onSwitch={handleBranchSwitch}
-            onCreate={handleBranchCreate}
-          />
-        </aside>
-        <div id="mc-project-context-column" className="min-h-0 min-w-0 overflow-hidden md:h-full">
-          <ContextPanel
-            focus={focus}
-            snapshot={snapshot}
-            detail={detail}
-            loading={detailLoading}
-            selectedCommitHash={selectedCommitHash}
-            onSelectCommit={(hash) => void controller.selectCommit(hash)}
-            lastUpdated={snapshot.observedAt}
-            onRefresh={() => void controller.refresh()}
-          />
-        </div>
+        {mode === 'code' ? (
+          <>
+            <aside
+              id="mc-project-sidebar"
+              className="min-w-0 space-y-2 border-b p-2 md:min-h-0 md:overflow-y-auto md:border-b-0"
+            >
+              <CodeTree
+                projectId={active.project_id}
+                selectedPath={codePath}
+                onSelectFile={(path) => void controller.openCodeFile(path)}
+              />
+            </aside>
+            <div id="mc-project-context-column" className="min-h-0 min-w-0 overflow-hidden md:h-full">
+              <CodeViewer path={codePath} file={codeFile} loading={codeLoading} error={codeError} />
+            </div>
+          </>
+        ) : (
+          <>
+            <aside
+              id="mc-project-sidebar"
+              className="min-w-0 space-y-2 border-b p-2 md:min-h-0 md:overflow-y-auto md:border-b-0"
+            >
+              <CapabilityNotice
+                name="working tree"
+                capability={snapshot.capabilities.workingTree as Snapshot['capabilities'][string]}
+              />
+              <CapabilityNotice
+                name="branches"
+                capability={snapshot.capabilities.branches as Snapshot['capabilities'][string]}
+              />
+              <CapabilityNotice
+                name="commits"
+                capability={snapshot.capabilities.commits as Snapshot['capabilities'][string]}
+              />
+              <CapabilityNotice
+                name="branch logs"
+                capability={snapshot.capabilities.branchLogs as Snapshot['capabilities'][string]}
+              />
+              <CapabilityNotice
+                name="GitHub"
+                capability={snapshot.capabilities.github as Snapshot['capabilities'][string]}
+              />
+              <SidebarSections
+                snapshot={snapshot}
+                focus={focus}
+                mutationMessage={mutationMessage}
+                mutationBusy={mutationBusy}
+                selectedCommitHash={selectedCommitHash}
+                onSelectFile={(path) => void selectFocus({ kind: 'file', value: path })}
+                onSelectBranch={(name) => void selectFocus({ kind: 'branch', value: name })}
+                onSelectCommit={(hash) => void selectFocus({ kind: 'commit', value: hash })}
+                onSwitch={handleBranchSwitch}
+                onCreate={handleBranchCreate}
+              />
+            </aside>
+            <div id="mc-project-context-column" className="min-h-0 min-w-0 overflow-hidden md:h-full">
+              <ContextPanel
+                focus={focus}
+                snapshot={snapshot}
+                detail={detail}
+                loading={detailLoading}
+                selectedCommitHash={selectedCommitHash}
+                onSelectCommit={(hash) => void controller.selectCommit(hash)}
+                lastUpdated={snapshot.observedAt}
+                onRefresh={() => void controller.refresh()}
+              />
+            </div>
+          </>
+        )}
       </div>
     </main>
   )

@@ -622,3 +622,22 @@
 #mc-project-sidebar {
   padding-left: 16px;
 }
+
+/* Workspace mode Code (#28): raw file viewer with line numbers.
+ * Line numbers are rendered in DOM (split by \n) and styled via ::before so
+ * the content stays untouched; no editor dependency in the MVP. */
+.code-viewer-scroll {
+  counter-reset: line;
+}
+.code-viewer-scroll .code-line {
+  counter-increment: line;
+}
+.code-viewer-scroll .code-line::before {
+  content: counter(line);
+  color: var(--color-text-subtle);
+  display: inline-block;
+  width: 2.5rem;
+  margin-right: 0.75rem;
+  text-align: right;
+  user-select: none;
+}

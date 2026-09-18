@@ -1,4 +1,4 @@
-import type { Focus, ProjectBranch, ProjectSummary, Snapshot } from './types'
+import type { FileResponse, Focus, ProjectBranch, ProjectSummary, Snapshot, TreeResponse } from './types'
 import { ApiError, validMutationResponse } from './api.ts'
 import { normalizeCatalog, type FileRow, focusFromSnapshot } from './models.ts'
 
@@ -66,6 +66,8 @@ type RouteApi = {
   pullRequest: (projectId: string, number: number, snapshot: Snapshot) => Promise<unknown>
   switchBranch: (projectId: string, branchName: string) => Promise<unknown>
   createBranch: (projectId: string, name: string) => Promise<unknown>
+  tree: (projectId: string, path?: string) => Promise<TreeResponse>
+  readFile: (projectId: string, path: string) => Promise<FileResponse>
 }
 
 export type RouteState = {
@@ -82,6 +84,11 @@ export type RouteState = {
   mutationMessage: string
   mutationBusy: boolean
   selectedCommitHash?: string
+  mode: 'git' | 'code'
+  codePath?: string
+  codeFile?: FileResponse
+  codeLoading: boolean
+  codeError?: ApiError
 }
 
 const initialState: RouteState = {
@@ -93,6 +100,8 @@ const initialState: RouteState = {
   mutation: false,
   mutationMessage: '',
   mutationBusy: false,
+  mode: 'git',
+  codeLoading: false,
 }
 const asError = (cause: unknown) => (cause instanceof ApiError ? cause : new ApiError('NETWORK'))
 const INDETERMINATE_MUTATION_CODES = new Set(['MUTATION_INDETERMINATE', 'INDETERMINATE', 'READBACK_MISMATCH'])
@@ -162,6 +171,11 @@ export function createRouteController(api: RouteApi) {
       mutationMessage: '',
       mutationBusy: false,
       selectorOpen: false,
+      mode: 'git',
+      codePath: undefined,
+      codeFile: undefined,
+      codeLoading: false,
+      codeError: undefined,
     })
     return loadSnapshot(id, requestToken)
   }
@@ -239,6 +253,29 @@ export function createRouteController(api: RouteApi) {
       if (mounted && requestToken === token) update({ error: asError(cause) })
     } finally {
       if (mounted && requestToken === token) update({ detailLoading: false })
+    }
+  }
+  const setMode = (mode: 'git' | 'code') => {
+    ++token
+    update({
+      mode,
+      ...(mode === 'git' ? { codePath: undefined, codeFile: undefined, codeLoading: false, codeError: undefined } : {}),
+    })
+  }
+  const openCodeFile = async (path: string) => {
+    const currentId = state.activeId
+    if (!currentId || state.mode !== 'code') return
+    const requestToken = ++token
+    update({ codePath: path, codeLoading: true, codeError: undefined })
+    try {
+      const file = await api.readFile(currentId, path)
+      if (mounted && requestToken === token && state.activeId === currentId && state.mode === 'code')
+        update({ codeFile: file, codeLoading: false })
+    } catch (cause) {
+      if (mounted && requestToken === token && state.activeId === currentId && state.mode === 'code')
+        update({ codeError: asError(cause), codeLoading: false })
+    } finally {
+      if (mounted && requestToken === token && state.mode === 'code') update({ codeLoading: false })
     }
   }
   const mutate = async (kind: 'switch' | 'create', value: string) => {
@@ -334,6 +371,8 @@ export function createRouteController(api: RouteApi) {
     selectFocus,
     selectCommit,
     selectPullRequest,
+    setMode,
+    openCodeFile,
     mutate,
     toggleSelector: () => update({ selectorOpen: !state.selectorOpen }),
   }

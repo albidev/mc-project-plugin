@@ -59,7 +59,7 @@ function response(data: unknown) {
   )
 }
 
-async function mountedRoute(snapshot = fixture.data, allowReadBack = false) {
+async function mountedRoute(snapshot = fixture.data, allowReadBack = false, otherSnapshot?: unknown) {
   const window = installDom()
   let snapshotReads = 0
   window.fetch = async (input) => {
@@ -85,6 +85,7 @@ async function mountedRoute(snapshot = fixture.data, allowReadBack = false) {
       ])
     if (url.includes('/snapshot?')) {
       snapshotReads += 1
+      if (otherSnapshot && url.includes('project_id=other')) return response(otherSnapshot)
       return snapshotReads > 1 && !allowReadBack ? Promise.reject(new Error('offline')) : response(snapshot)
     }
     if (url.includes('/commit?'))
@@ -98,6 +99,23 @@ async function mountedRoute(snapshot = fixture.data, allowReadBack = false) {
           { path: 'assets/logo.png', additions: 0, deletions: 0, binary: true },
         ],
         diff: 'diff --git a/src/app.ts b/src/app.ts\nindex 1111111..2222222 100644\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1,2 +1,3 @@\n const value = 1;\n-const oldValue = true;\n+const newValue = true;\n+const extra = true;\n',
+      })
+    if (url.includes('/tree?'))
+      return response({
+        path: 'ui',
+        entries: [
+          { name: 'src', path: 'src', type: 'dir' },
+          { name: 'README.md', path: 'README.md', type: 'file' },
+        ],
+        truncated: false,
+      })
+    if (url.includes('/file?'))
+      return response({
+        path: 'README.md',
+        size: 9,
+        content: '# repo\n',
+        truncated: false,
+        binary: false,
       })
     if (url.includes('/pull-request?'))
       return response({
@@ -1208,6 +1226,52 @@ test('renders capability notice and retains last-good DOM after a failed refresh
     })
     assert.match(text(host), /Refresh unavailable; showing last-known-good data/)
     assert.match(text(host), /src\/app\.ts/)
+  } finally {
+    await act(async () => root.unmount())
+  }
+})
+
+test('#28 code mode renders tree and viewer and resets on mode change', { concurrency: false }, async () => {
+  const { host, root } = await mountedRoute()
+  try {
+    assert.ok(host.querySelector('[data-testid="workspace-mode-tabs"]'))
+    assert.ok(host.querySelector('[data-mode="git"][aria-selected="true"]'))
+    assert.ok(host.querySelector('[data-testid="files-section"]'))
+    await click(host, '[data-mode="code"]')
+    assert.ok(host.querySelector('[data-mode="code"][aria-selected="true"]'))
+    assert.ok(host.querySelector('[data-testid="code-tree"]'))
+    assert.equal(host.querySelector('[data-testid="files-section"]'), null)
+    assert.ok(host.querySelector('[data-testid="code-tree-row"][data-tree-path="README.md"]'))
+    await click(host, '[data-tree-path="README.md"][data-tree-kind="file"]')
+    await act(async () => {
+      await sleep(50)
+    })
+    assert.ok(host.querySelector('[data-testid="code-content"]'))
+    assert.match(text(host), /# repo/)
+    assert.ok(host.querySelectorAll('[data-testid="code-content"] .code-line').length > 0)
+    await click(host, '[data-mode="git"]')
+    assert.ok(host.querySelector('[data-testid="files-section"]'))
+    assert.equal(host.querySelector('[data-testid="code-tree"]'), null)
+  } finally {
+    await act(async () => root.unmount())
+  }
+})
+
+test('#28 selecting another project returns to git mode', { concurrency: false }, async () => {
+  const otherSnapshot = structuredClone(fixture.data)
+  otherSnapshot.project_id = 'other'
+  otherSnapshot.project = { ...otherSnapshot.project, name: 'Other' }
+  const { host, root } = await mountedRoute(fixture.data, true, otherSnapshot)
+  try {
+    await click(host, '[data-mode="code"]')
+    assert.ok(host.querySelector('[data-testid="code-tree"]'))
+    await click(host, '#mc-project-header [aria-controls="project-options"]')
+    await click(host, '.proj-card[data-value="other"]')
+    await act(async () => {
+      await sleep(50)
+    })
+    assert.equal(host.querySelector('[data-testid="code-tree"]'), null)
+    assert.ok(host.querySelector('[data-testid="files-section"]'))
   } finally {
     await act(async () => root.unmount())
   }
