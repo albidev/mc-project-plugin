@@ -319,8 +319,15 @@ function deferred() {
 }
 const routeApi = (snapshots, overrides = {}) => ({
   catalog: async () => [
-    { project_id: 'demo', name: 'Demo', enabled: true, remote: 'origin', default_branch: 'main' },
-    { project_id: 'other', name: 'Other', enabled: true, remote: 'origin', default_branch: 'main' },
+    {
+      project_id: 'demo',
+      name: 'Demo',
+      enabled: true,
+      remote: 'origin',
+      default_branch: 'main',
+      repository: 'imbundle/mc-project-plugin',
+    },
+    { project_id: 'other', name: 'Other', enabled: true, remote: 'origin', default_branch: 'main', repository: null },
   ],
   snapshot: async (id) => snapshots[id],
   commit: async () => ({ detail: true }),
