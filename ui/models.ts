@@ -25,7 +25,7 @@ export interface GitHubUrlExpectation {
   repository?: string | null
 }
 
-function repositoryName(value: string): string | undefined {
+export function repositoryName(value: string): string | undefined {
   const raw = value
     .replace(/^https:\/\/github\.com\//, '')
     .replace(/^ssh:\/\/git@github\.com\//, '')

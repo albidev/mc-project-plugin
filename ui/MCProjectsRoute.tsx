@@ -1,6 +1,6 @@
 import React from 'react'
 import { projectsApi } from './api'
-import { canMutate } from './models'
+import { canMutate, repositoryName } from './models'
 import { createRouteController, selectorOptions } from './routeBehavior'
 import type { Snapshot } from './types'
 import { ProjectSelector } from './components/ProjectSelector'
@@ -79,7 +79,7 @@ export default function MCProjectsRoute() {
       data-testid="mc-projects-route"
       className="bg-surface text-text flex h-full max-h-full min-h-0 w-full max-w-full min-w-0 flex-col overflow-x-hidden overflow-y-auto overscroll-contain md:overflow-hidden"
     >
-      <header id="mc-project-header" className="flex min-h-9 shrink-0 items-center gap-2 px-4 py-1 sm:px-5">
+      <header id="mc-project-header" className="workspace-grid min-h-9 shrink-0">
         <ProjectSelector
           active={active}
           projects={selectorOptions(catalog, active.project_id)}
@@ -88,6 +88,7 @@ export default function MCProjectsRoute() {
           onSelect={selectProject}
           activeBranch={snapshot.branches.local.find((b) => b.current)?.name}
           activeChanged={snapshot.workingTree.files?.length}
+          activeRepository={repositoryName(snapshot.project.repository ?? '') ?? active.project_id}
         />
       </header>
       {loading && (
@@ -100,7 +101,7 @@ export default function MCProjectsRoute() {
           Refresh unavailable; showing last-known-good data.
         </div>
       )}
-      <div className="grid min-h-0 flex-1 md:grid-cols-[minmax(248px,20%)_minmax(0,1fr)] md:overflow-hidden">
+      <div className="workspace-grid min-h-0 flex-1 md:overflow-hidden">
         <aside
           id="mc-project-sidebar"
           className="min-w-0 space-y-2 border-b p-2 md:min-h-0 md:overflow-y-auto md:border-b-0"

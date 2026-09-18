@@ -17,6 +17,26 @@
   border-radius: 0 !important;
 }
 
+/* Shared grid template for the header and the body: the project selector
+ * trigger must be as wide as the sidebar column, and the chevron must reach
+ * its right edge. One class = one width source, no drift between header/body.
+ * The header container carries no horizontal padding: grid tracks resolve on
+ * the content box, so any px/gap on the header but not on the body would
+ * overhang the trigger past the sidebar column edge (issue #24). */
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(248px, 20%) minmax(0, 1fr);
+}
+@media (max-width: 767px) {
+  /* md = 48rem (768px) è il breakpoint della griglia body (`md:`); sotto
+   * 768px header e body sono entrambi a una colonna. 899px NON va usato:
+   * è solo il breakpoint touch della sidebar (route.css:153) e in 768-899px
+   * il body sarebbe ancora a 2 colonne mentre l'header a 1 → drift. */
+  .workspace-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Breadcrumb (colonna centrale): separatrice inferiore single-owner — l'utility
  * `border-b` computa 0px, stesso difetto cascade documentato in C1 (header/sidebar). */
 #mc-project-context-column [data-testid='context-breadcrumb'] {
@@ -202,10 +222,9 @@
 .ref-max-w {
   max-width: 24ch;
 }
-.overlay-w {
-  width: min(400px, calc(100vw - 40px));
-}
-/* Project selector overlay (target v4): card ricche come mockup */
+/* Project selector overlay (target v4): card ricche come mockup.
+ * #24: overlay flat — niente shadow né card rounded (la larghezza è w-full del
+ * trigger, left-0 right-0 in ProjectSelector.tsx; .overlay-w da 400px rimosso). */
 #project-options .proj-card {
   display: flex;
   align-items: center;
@@ -214,7 +233,7 @@
   padding: 8px 10px;
   border: none;
   /* host `button { border-radius: var(--control-radius)!important }` vince: !important necessario (come trigger) */
-  border-radius: 8px !important;
+  border-radius: 0 !important;
   background: transparent;
   color: var(--color-text);
   font: inherit;
