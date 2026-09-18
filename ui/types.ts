@@ -164,3 +164,10 @@ export interface FileResponse {
   truncated: boolean
   binary: boolean
 }
+export interface FileRawResponse {
+  path: string
+  contentType: string
+  size: number
+  contentBase64: string
+  truncated: false
+}

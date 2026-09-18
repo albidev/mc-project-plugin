@@ -298,3 +298,30 @@ def readFile(body: dict[str, Any], params: Mapping[str, list[str]], auth: object
             raise ServiceError("NOT_FOUND", 404) from exc
 
     return _run(operation)
+
+
+def readFileRaw(body: dict[str, Any], params: Mapping[str, list[str]], auth: object = _MISSING) -> dict[str, object]:
+    _auth(auth)
+    _get_body(body)
+    values = _params(params, {"project_id", "path"})
+    project_id = _one(values, "project_id")
+    rel = _one(values, "path")
+    assert isinstance(rel, str)
+    if not project_id or not _PROJECT_ID.fullmatch(project_id):
+        raise ServiceError("INVALID_REQUEST", 400)
+    if not file_explorer.valid_relative_path(rel):
+        raise ServiceError("INVALID_REQUEST", 400)
+
+    def operation() -> dict[str, object]:
+        registry, _ = _runtime()
+        context = resolve_context(registry, project_id)
+        try:
+            return _ok(file_explorer.read_file_raw(context.path, rel))
+        except file_explorer.NotAllowedError as exc:
+            raise ServiceError("NOT_ALLOWED", 403) from exc
+        except FileNotFoundError as exc:
+            raise ServiceError("NOT_FOUND", 404) from exc
+        except file_explorer.PayloadTooLargeError as exc:
+            raise ServiceError("PAYLOAD_TOO_LARGE", 413) from exc
+
+    return _run(operation)
