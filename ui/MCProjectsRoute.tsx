@@ -126,7 +126,7 @@ export default function MCProjectsRoute() {
               />
             </aside>
             <div id="mc-project-context-column" className="min-h-0 min-w-0 overflow-hidden md:h-full">
-              <CodeViewer path={codePath} file={codeFile} loading={codeLoading} error={codeError} />
+              <CodeViewer projectId={active.project_id} path={codePath} file={codeFile} loading={codeLoading} error={codeError} />
             </div>
           </>
         ) : (
